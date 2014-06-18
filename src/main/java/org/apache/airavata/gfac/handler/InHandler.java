@@ -91,15 +91,24 @@ public class InHandler extends AbstractHandler{
            for(String paramName:parameters){
                ActualParameter actualParameter=(ActualParameter)inputs.getParameters().get(paramName);
                String paramValue=MappingFactory.toString(actualParameter);
-
+               String paramValueNew="";
                if("URI".equals(actualParameter.getType().getType().toString())){
-                   ((URIParameterType)actualParameter.getType()).setValue(stageInputFiles(jobExecutionContext,paramValue));
+                    paramValueNew=stageInputFiles(jobExecutionContext,paramValue);
+                   ((URIParameterType)actualParameter.getType()).setValue(paramValueNew);
+                    detail.setTransferDescription("Input Data Staged: " + paramValueNew);
                }else if("S3".equals(actualParameter.getType().getType().toString())){
-                   //((S3ParameterType)actualParameter.getType()).setValue(stageS3Files(jobExecutionContext,paramValue));
+                   // paramValueNew=stageS3Files(jobExecutionContext,paramValue);
+                   // ((S3ParameterType)actualParameter.getType()).setValue(paramValueNew);
+                   // detail.setTransferDescription("Input Data Staged: " + paramValueNew);
                    // need to add this when s3type add to gfac schema
+                   
                }
                inputNew.getParameters().put(paramName,actualParameter);
-          }
+               status.setTransferState(TransferState.UPLOAD);
+               detail.setTransferStatus(status);
+               registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+
+           }
         }catch (Exception e){
             log.error(e.getMessage());
             status.setTransferState(TransferState.FAILED);
