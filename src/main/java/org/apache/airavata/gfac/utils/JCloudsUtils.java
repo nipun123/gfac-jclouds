@@ -1,9 +1,28 @@
+/*
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+*/
 package org.apache.airavata.gfac.utils;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.inject.Module;
-import org.apache.airavata.common.exception.ApplicationSettingsException;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.jclouds.ContextBuilder;
@@ -12,12 +31,10 @@ import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.RunNodesException;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
-import org.jclouds.ssh.SshClient;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
@@ -30,30 +47,32 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.jclouds.compute.config.ComputeServiceProperties.TIMEOUT_SCRIPT_COMPLETE;
 import static org.jclouds.scriptbuilder.domain.Statements.exec;
 
-/**
- * Created with IntelliJ IDEA.
- * User: Udara
- * Date: 5/29/14
- * Time: 5:35 PM
- * To change this template use File | Settings | File Templates.
- */
 public class JCloudsUtils {
     private String jobID = null;
     private String taskID = null;
     private JCloudsSecurityContext securityContext;
     private String nodeId;
     private ComputeServiceContext context;
+    private ComputeService service;
     private LoginCredentials credentials;
+    private static JCloudsUtils jCloudsUtils;
 
-   public static boolean terminateNode(ComputeService service,String nodeId){
+   public static JCloudsUtils getInstance(){
+      if (jCloudsUtils==null){
+          jCloudsUtils=new JCloudsUtils();
+      }
+      return jCloudsUtils;
+   }
+
+   public boolean terminateNode(){
        service.destroyNode(nodeId);
-       if (checkNodeStateEqual(service,nodeId, NodeMetadata.Status.TERMINATED)){
+       if (checkNodeStateEqual(NodeMetadata.Status.TERMINATED)){
            return true;
        }
        return false;
    }
 
-   public static boolean checkNodeStateEqual(ComputeService service,String nodeId,NodeMetadata.Status status ){
+   public boolean checkNodeStateEqual(NodeMetadata.Status status ){
        NodeMetadata node=service.getNodeMetadata(nodeId);
        if (node.getStatus()==status){
            return true;
@@ -61,23 +80,23 @@ public class JCloudsUtils {
        return false;
    }
 
-   public static boolean startNode(ComputeService service,String nodeId){
+   public boolean startNode(){
        service.resumeNode(nodeId);
-       if (checkNodeStateEqual(service,nodeId, NodeMetadata.Status.RUNNING)){
+       if (checkNodeStateEqual(NodeMetadata.Status.RUNNING)){
            return true;
        }
        return false;
    }
 
-   public static boolean stopNode(ComputeService service,String nodeId){
+   public boolean stopNode(){
        service.suspendNode(nodeId);
-       if (checkNodeStateEqual(service,nodeId, NodeMetadata.Status.SUSPENDED)){
+       if (checkNodeStateEqual(NodeMetadata.Status.SUSPENDED)){
            return true;
        }
        return false;
    }
 
-    public static ExecResponse runScriptOnNode(LoginCredentials credentials,String nodeId,String command,ComputeService service,boolean runAsRoot){
+    public ExecResponse runScriptOnNode(LoginCredentials credentials,String command,boolean runAsRoot){
         TemplateOptions options=TemplateOptions.Builder.overrideLoginCredentials(credentials);
         try {
             ExecResponse response=service.runScriptOnNode(nodeId,exec(command),
@@ -112,16 +131,16 @@ public class JCloudsUtils {
         }
     }
 
-    public static boolean isS3CmdInstall(LoginCredentials credentials,String nodeId,ComputeService service){
+    public boolean isS3CmdInstall(LoginCredentials credentials){
         String command="s3cmd --version";
-        ExecResponse response=runScriptOnNode(credentials,nodeId,command,service,false);
+        ExecResponse response=runScriptOnNode(credentials,command,false);
         if(response.getExitStatus()==12){
             return true;
         }
         return false;
     }
 
-    public static void installS3CmdOnNode(JCloudsSecurityContext securityContext,LoginCredentials credentials,String nodeId,ComputeService service){
+    public void installS3CmdOnNode(JCloudsSecurityContext securityContext,LoginCredentials credentials){
         String installs3cmd=new StringBuilder().append("cd /etc/yum.repos.d \n")
                 .append("sudo wget http://s3tools.org/repo/RHEL_6/s3tools.repo \n")
                 .append("sudo yum -y install s3cmd")
@@ -138,14 +157,15 @@ public class JCloudsUtils {
                 .append("y")
                 .toString();
 
-        runScriptOnNode(credentials,nodeId,installs3cmd,service,true);
-        runScriptOnNode(credentials,nodeId,configures3cmd,service,true);
+        runScriptOnNode(credentials,installs3cmd,true);
+        runScriptOnNode(credentials,configures3cmd,true);
     }
 
     public void initJCloudsEnvironment(JobExecutionContext jobExecutionContext) throws GFacException {
         if(jobExecutionContext!=null){
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
         }
+        nodeId=securityContext.getNodeId();
 
         Properties overides=new Properties();
         long scriptTimeout= TimeUnit.MILLISECONDS.convert(20,TimeUnit.MINUTES);
@@ -157,8 +177,8 @@ public class JCloudsUtils {
                 .credentials(securityContext.getAccessKey(), securityContext.getSecretKey())
                 .modules(modules)
                 .overrides(overides);
-        this.context= builder.buildView(ComputeServiceContext.class);
-        ComputeService service=context.getComputeService();
+        context= builder.buildView(ComputeServiceContext.class);
+        service=context.getComputeService();
 
         try{
             String user=System.getProperty("user.name");
@@ -171,7 +191,7 @@ public class JCloudsUtils {
 
         NodeMetadata node=context.getComputeService().getNodeMetadata(nodeId);
         if(node.getStatus()== NodeMetadata.Status.SUSPENDED){
-            JCloudsUtils.startNode(service,nodeId);
+            startNode();
         }
     }
 

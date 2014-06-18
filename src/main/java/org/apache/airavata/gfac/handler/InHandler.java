@@ -1,6 +1,25 @@
+/*
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+*/
 package org.apache.airavata.gfac.handler;
 
-import org.apache.airavata.common.exception.ApplicationSettingsException;
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.MappingFactory;
 import org.apache.airavata.gfac.GFacException;
@@ -13,43 +32,52 @@ import org.apache.airavata.gfac.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.*;
 import org.apache.airavata.registry.cpi.ChildDataType;
+import org.apache.airavata.registry.cpi.RegistryException;
 import org.apache.airavata.schemas.gfac.ApplicationDeploymentDescriptionType;
-import org.apache.airavata.schemas.gfac.StringParameterType;
 import org.apache.airavata.schemas.gfac.URIParameterType;
-import org.jclouds.ContextBuilder;
-import org.jclouds.blobstore.BlobStore;
-import org.jclouds.blobstore.BlobStoreContext;
-import org.jclouds.blobstore.domain.Blob;
-import org.jclouds.blobstore.domain.BlobBuilder;
-import org.jclouds.domain.Location;
+import org.jclouds.compute.domain.ExecResponse;
+import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import java.io.File;
-import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
-/**
- * Created with IntelliJ IDEA.
- * User: Udara
- * Date: 5/27/14
- * Time: 10:48 AM
- * To change this template use File | Settings | File Templates.
- */
 public class InHandler extends AbstractHandler{
     private static final Logger log = LoggerFactory.getLogger(InHandler.class);
     private JCloudsFileTransfer transfer;
     private JCloudsUtils jCloudsUtils;
+    private LoginCredentials credentials;
+    private JCloudsSecurityContext securityContext;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
+        if (jobExecutionContext==null){
+            throw new GFacHandlerException("JobExecution is null");
+        }
+        try{
+           securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+        } catch (GFacException e) {
+           e.printStackTrace();
+        }
+        if (securityContext==null){
+            throw new GFacHandlerException("security context is not properly set");
+        }else{
+            log.info("successfully retrived security context");
+        }
+
+        jCloudsUtils=JCloudsUtils.getInstance();
         try {
-            jCloudsUtils=new JCloudsUtils();
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
         }catch (GFacException e){
-            e.printStackTrace();
+            throw new GFacHandlerException("fail to initialize ec2 environment");
         }
+        credentials=jCloudsUtils.getCredentials();
+        log.info("Setup Job directories");
+        super.invoke(jobExecutionContext);
+
+        makeDirectory(jobExecutionContext);
         DataTransferDetails detail = new DataTransferDetails();
         TransferStatus status = new TransferStatus();
         MessageContext inputNew=new MessageContext();
@@ -66,8 +94,9 @@ public class InHandler extends AbstractHandler{
 
                if("URI".equals(actualParameter.getType().getType().toString())){
                    ((URIParameterType)actualParameter.getType()).setValue(stageInputFiles(jobExecutionContext,paramValue));
-               }else{
-                  // add the logic when S3Type add to the gfac-schema
+               }else if("S3".equals(actualParameter.getType().getType().toString())){
+                   //((S3ParameterType)actualParameter.getType()).setValue(stageS3Files(jobExecutionContext,paramValue));
+                   // need to add this when s3type add to gfac schema
                }
                inputNew.getParameters().put(paramName,actualParameter);
           }
@@ -107,18 +136,41 @@ public class InHandler extends AbstractHandler{
        String targetFile=null;
        try {
             targetFile=app.getInputDataDirectory()+File.separator+fileName;
-            if(!JCloudsUtils.isS3CmdInstall(null,"",null)){
-                JCloudsUtils.installS3CmdOnNode((JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT),null,"",null);
+            if(!jCloudsUtils.isS3CmdInstall(credentials)){
+                jCloudsUtils.installS3CmdOnNode(securityContext,credentials);
             }
             String command="s3cmd get "+paramValue+" "+targetFile;
-            JCloudsUtils.runScriptOnNode(null,"",command,null,false);
+            jCloudsUtils.runScriptOnNode(credentials,command,false);
        }catch (Exception e){
           e.printStackTrace();
        }
        return targetFile;
     }
 
-    private void makeDirectory(){
+    private void makeDirectory(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
+        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
+        String inputDataDirectory=app.getInputDataDirectory();
+        String outputDataDirectory=app.getOutputDataDirectory();
+        String command=new StringBuilder().append("mkdir "+inputDataDirectory+"\n")
+                                          .append("mkdir "+outputDataDirectory+"\n").toString();
+        ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, command, true);
+        try{
+            if(response.getExitStatus()==12){
+                DataTransferDetails detail = new DataTransferDetails();
+                TransferStatus status = new TransferStatus();
+                status.setTransferState(TransferState.DIRECTORY_SETUP);
+                detail.setTransferStatus(status);
+                registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+            }else{
+                DataTransferDetails detail = new DataTransferDetails();
+                TransferStatus status = new TransferStatus();
+                status.setTransferState(TransferState.FAILED);
+                detail.setTransferStatus(status);
+                registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+            }
+        }catch (RegistryException re){
+            throw new GFacHandlerException("Error persisting status");
+        }
 
     }
     @Override
