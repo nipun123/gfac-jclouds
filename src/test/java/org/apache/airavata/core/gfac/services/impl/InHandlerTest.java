@@ -20,7 +20,7 @@ import org.apache.airavata.schemas.gfac.StringParameterType;
 import org.apache.airavata.workflow.model.utils.MessageConstants;
 import org.junit.Before;
 import org.junit.Test;
-import security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.net.URL;

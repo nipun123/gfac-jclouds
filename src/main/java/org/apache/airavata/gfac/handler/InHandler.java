@@ -24,7 +24,7 @@ import org.jclouds.blobstore.domain.BlobBuilder;
 import org.jclouds.domain.Location;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.util.List;

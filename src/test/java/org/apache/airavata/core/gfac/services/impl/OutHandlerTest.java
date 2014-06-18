@@ -17,7 +17,7 @@ import org.apache.airavata.persistance.registry.jpa.impl.LoggingRegistryImpl;
 import org.apache.airavata.schemas.gfac.*;
 import org.junit.Before;
 import org.junit.Test;
-import security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.net.URL;

@@ -1,4 +1,4 @@
-package security;
+package org.apache.airavata.gfac.security;
 
 import org.apache.airavata.gfac.SecurityContext;
 import org.jclouds.compute.domain.NodeMetadata;

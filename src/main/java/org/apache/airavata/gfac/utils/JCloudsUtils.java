@@ -19,7 +19,7 @@ import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
 import org.jclouds.ssh.SshClient;
 import org.jclouds.sshj.config.SshjSshClientModule;
-import security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.util.Properties;

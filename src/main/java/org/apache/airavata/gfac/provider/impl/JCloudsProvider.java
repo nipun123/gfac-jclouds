@@ -35,7 +35,7 @@ import java.io.*;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import static com.google.common.base.Charsets.UTF_8;
 

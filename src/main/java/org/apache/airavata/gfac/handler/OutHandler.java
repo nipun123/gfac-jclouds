@@ -23,7 +23,7 @@ import org.jclouds.domain.Location;
 import org.jclouds.io.Payload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.security.JCloudsSecurityContext;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Properties;
