@@ -36,10 +36,10 @@ public class OutHandlerTest {
     private String userName = "Udara";
 
     /* Secret key used to connect to the image */
-    private String secretKey = "10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+";
+    private String secretKey = "";
 
     /* Access key used to connect to the image */
-    private String accessKey = "AKIAJ3M3FUZ7PTDQP4YQ";
+    private String accessKey = "";
 
     /* Instance id of the running instance of your image */
     private String instanceId = "i-2ec6337c";
