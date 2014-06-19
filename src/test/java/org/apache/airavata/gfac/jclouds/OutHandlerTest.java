@@ -1,15 +1,14 @@
-package org.apache.airavata.core.gfac.services.impl;
+package org.apache.airavata.gfac.jclouds;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.ApplicationDescription;
 import org.apache.airavata.commons.gfac.type.HostDescription;
 import org.apache.airavata.commons.gfac.type.ServiceDescription;
 import org.apache.airavata.gfac.GFacConfiguration;
-import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
-import org.apache.airavata.gfac.handler.OutHandler;
+import org.apache.airavata.gfac.jclouds.handler.OutHandler;
 import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
 import org.apache.airavata.model.workspace.experiment.WorkflowNodeDetails;
@@ -17,7 +16,7 @@ import org.apache.airavata.persistance.registry.jpa.impl.LoggingRegistryImpl;
 import org.apache.airavata.schemas.gfac.*;
 import org.junit.Before;
 import org.junit.Test;
-import org.apache.airavata.gfac.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.net.URL;

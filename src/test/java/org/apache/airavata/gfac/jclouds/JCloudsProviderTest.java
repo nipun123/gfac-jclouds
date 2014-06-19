@@ -18,7 +18,7 @@
  * under the License.
  *
 */
-package org.apache.airavata.core.gfac.services.impl;
+package org.apache.airavata.gfac.jclouds;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.ApplicationDescription;
@@ -28,7 +28,8 @@ import org.apache.airavata.gfac.GFacConfiguration;
 import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
-import org.apache.airavata.gfac.provider.impl.JCloudsProvider;
+import org.apache.airavata.gfac.jclouds.handler.InHandler;
+import org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider;
 import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
 import org.apache.airavata.model.workspace.experiment.WorkflowNodeDetails;
@@ -36,7 +37,7 @@ import org.apache.airavata.persistance.registry.jpa.impl.LoggingRegistryImpl;
 import org.apache.airavata.schemas.gfac.*;
 import org.junit.Before;
 import org.junit.Test;
-import org.apache.airavata.gfac.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.net.URL;
@@ -46,7 +47,7 @@ import java.util.List;
 public class JCloudsProviderTest {
     private JobExecutionContext jobExecutionContext;
     /* Username used to log into your ec2 instance eg.ec2-user */
-    private String userName = "Udara";
+    private String userName = "ec2-user";
 
     /* Secret key used to connect to the image */
     private String secretKey = "10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+";
@@ -55,7 +56,7 @@ public class JCloudsProviderTest {
     private String accessKey = "AKIAJ3M3FUZ7PTDQP4YQ";
 
     /* Instance id of the running instance of your image */
-    private String instanceId = "i-2ec6337c";
+    private String instanceId = "i-b95b8492";
 
     private String hostName="ec2";
     private String hostAddress="";
@@ -92,10 +93,10 @@ public class JCloudsProviderTest {
 
         //Job location
         String tempDir="/home/ec2-user";
-        app.setInputDataDirectory(tempDir + File.separator + "input");
-        app.setOutputDataDirectory(tempDir + File.separator + "output");
-        app.setStandardOutput(tempDir + File.separator + "echo.stdout");
-        app.setStandardError(tempDir + File.separator + "echo.stderr");
+        app.setInputDataDirectory(tempDir+"/input");
+        app.setOutputDataDirectory(tempDir +"/output");
+        app.setStandardOutput(tempDir +"/stdout");
+        app.setStandardError(tempDir +"/stderr");
 
 
         //Inputs and Outputs
@@ -137,16 +138,19 @@ public class JCloudsProviderTest {
 
         MessageContext inMessage=new MessageContext();
         ActualParameter inputParam1=new ActualParameter();
+        inputParam1.getType().changeType(URIParameterType.type);
         ((URIParameterType)inputParam1.getType()).setValue(inputFile1);
         inMessage.addParameter("input1",inputParam1);
         System.out.println(inputParam1.getType().getType().toString());
 
         ActualParameter inputParam2=new ActualParameter();
+        inputParam2.getType().changeType(URIParameterType.type);
         ((URIParameterType)inputParam2.getType()).setValue(inputFile2);
-        inMessage.addParameter("input2",inputParam1);
+        inMessage.addParameter("input2",inputParam2);
 
         MessageContext outMessage=new MessageContext();
         ActualParameter outputParam=new ActualParameter();
+        outputParam.getType().changeType(URIParameterType.type);
         ((URIParameterType)outputParam.getType()).setValue(outputFile);
         outMessage.addParameter("output",outputParam);
 
@@ -162,10 +166,12 @@ public class JCloudsProviderTest {
 
     @Test
     public void testInitialize(){
+        InHandler inHandler=new InHandler();
         JCloudsProvider provider=new JCloudsProvider();
         try{
-          provider.initialize(jobExecutionContext);
-          provider.execute(jobExecutionContext);
+            inHandler.invoke(jobExecutionContext);
+            provider.initialize(jobExecutionContext);
+            provider.execute(jobExecutionContext);
         }catch (Exception e){
            System.out.println(e.toString());
         }

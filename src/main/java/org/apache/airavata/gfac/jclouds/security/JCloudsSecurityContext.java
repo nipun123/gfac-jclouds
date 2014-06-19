@@ -18,7 +18,7 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.security;
+package org.apache.airavata.gfac.jclouds.security;
 
 import org.apache.airavata.gfac.SecurityContext;
 import org.jclouds.compute.domain.NodeMetadata;

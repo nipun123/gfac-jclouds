@@ -18,7 +18,7 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.handler;
+package org.apache.airavata.gfac.jclouds.handler;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.MappingFactory;
@@ -28,8 +28,8 @@ import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
-import org.apache.airavata.gfac.utils.JCloudsFileTransfer;
-import org.apache.airavata.gfac.utils.JCloudsUtils;
+import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
+import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.*;
 import org.apache.airavata.registry.cpi.ChildDataType;
 import org.apache.airavata.registry.cpi.RegistryException;
@@ -39,7 +39,7 @@ import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.airavata.gfac.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.util.Properties;
@@ -53,6 +53,7 @@ public class InHandler extends AbstractHandler{
     private JCloudsSecurityContext securityContext;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
+        log.info("Invoking Handler");
         if (jobExecutionContext==null){
             throw new GFacHandlerException("JobExecution is null");
         }
@@ -74,6 +75,7 @@ public class InHandler extends AbstractHandler{
             throw new GFacHandlerException("fail to initialize ec2 environment");
         }
         credentials=jCloudsUtils.getCredentials();
+        transfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),credentials);
         log.info("Setup Job directories");
         super.invoke(jobExecutionContext);
 
@@ -83,9 +85,6 @@ public class InHandler extends AbstractHandler{
         MessageContext inputNew=new MessageContext();
 
         try{
-           log.info("Invoking Handler");
-           super.invoke(jobExecutionContext);
-
            MessageContext inputs=jobExecutionContext.getInMessageContext();
            Set<String> parameters=inputs.getParameters().keySet();
            for(String paramName:parameters){
@@ -96,13 +95,13 @@ public class InHandler extends AbstractHandler{
                     paramValueNew=stageInputFiles(jobExecutionContext,paramValue);
                    ((URIParameterType)actualParameter.getType()).setValue(paramValueNew);
                     detail.setTransferDescription("Input Data Staged: " + paramValueNew);
-               }else if("S3".equals(actualParameter.getType().getType().toString())){
+               }//else if("S3".equals(actualParameter.getType().getType().toString())){
                    // paramValueNew=stageS3Files(jobExecutionContext,paramValue);
                    // ((S3ParameterType)actualParameter.getType()).setValue(paramValueNew);
                    // detail.setTransferDescription("Input Data Staged: " + paramValueNew);
                    // need to add this when s3type add to gfac schema
                    
-               }
+               //}
                inputNew.getParameters().put(paramName,actualParameter);
                status.setTransferState(TransferState.UPLOAD);
                detail.setTransferStatus(status);
@@ -126,11 +125,11 @@ public class InHandler extends AbstractHandler{
 
     private String stageInputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws Exception{
        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-       int i=paramValue.lastIndexOf(File.separator);
+       int i=paramValue.lastIndexOf("/");
        String fileName=paramValue.substring(i+1);
        String targetFile=null;
        try{
-            targetFile=app.getInputDataDirectory()+File.separator+fileName;
+            targetFile=app.getInputDataDirectory()+"/"+fileName;
             transfer.uploadFileToEc2(targetFile,paramValue);
        }catch (Exception e){
             e.printStackTrace();
@@ -160,17 +159,20 @@ public class InHandler extends AbstractHandler{
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
         String inputDataDirectory=app.getInputDataDirectory();
         String outputDataDirectory=app.getOutputDataDirectory();
-        String command=new StringBuilder().append("mkdir "+inputDataDirectory+"\n")
-                                          .append("mkdir "+outputDataDirectory+"\n").toString();
-        ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, command, true);
+        String createDirectories=new StringBuilder().append("sudo mkdir -m 777 "+inputDataDirectory+"\n")
+                                                    .append("sudo mkdir -m 777 "+outputDataDirectory+"\n").toString();
+        ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);
         try{
-            if(response.getExitStatus()==12){
+            if(response.getExitStatus()==0){
                 DataTransferDetails detail = new DataTransferDetails();
                 TransferStatus status = new TransferStatus();
                 status.setTransferState(TransferState.DIRECTORY_SETUP);
                 detail.setTransferStatus(status);
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
-            }else{
+            }else if(response.getExitStatus()==1){
+                log.info("input data directory and outputdata directory already exist");
+            }
+            else{
                 DataTransferDetails detail = new DataTransferDetails();
                 TransferStatus status = new TransferStatus();
                 status.setTransferState(TransferState.FAILED);

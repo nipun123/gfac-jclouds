@@ -18,7 +18,7 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.utils;
+package org.apache.airavata.gfac.jclouds.utils;
 
 import net.schmizz.sshj.common.Base64;
 import org.bouncycastle.openssl.PEMWriter;

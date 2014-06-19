@@ -18,13 +18,15 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.provider.impl;
+package org.apache.airavata.gfac.jclouds.provider.impl;
 
+import org.apache.airavata.commons.gfac.type.ApplicationDescription;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
-import org.apache.airavata.gfac.utils.JCloudsFileTransfer;
+import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
+import org.apache.airavata.schemas.gfac.Ec2ApplicationDeploymentType;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
 
@@ -33,7 +35,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.airavata.gfac.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.util.Map;
 
@@ -71,7 +73,16 @@ public class JCloudsProvider extends AbstractProvider {
     public void cancelJob(String jobId, JobExecutionContext jobExecutionContext) throws GFacProviderException, GFacException {
     }
 
-    public void buildCommand(){
+    public void buildCommand(JobExecutionContext context1){
+        ApplicationDescription ec2App=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription();
+        Ec2ApplicationDeploymentType app=(Ec2ApplicationDeploymentType)ec2App.getType();
+        String SPACE=" ";
+        StringBuffer cmd=new StringBuffer();
+        cmd.append(app.getExecutableType());
+
+        cmd.append(app.getExecutableLocation());
+
+
 
     }
 }

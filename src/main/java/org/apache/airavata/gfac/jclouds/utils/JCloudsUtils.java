@@ -18,7 +18,7 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.utils;
+package org.apache.airavata.gfac.jclouds.utils;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
@@ -36,7 +36,7 @@ import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
 import org.jclouds.sshj.config.SshjSshClientModule;
-import org.apache.airavata.gfac.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.util.Properties;

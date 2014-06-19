@@ -18,12 +18,13 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.utils;
+package org.apache.airavata.gfac.jclouds.utils;
 
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.domain.LoginCredentials;

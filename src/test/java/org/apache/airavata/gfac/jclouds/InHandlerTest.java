@@ -1,4 +1,4 @@
-package org.apache.airavata.core.gfac.services.impl;
+package org.apache.airavata.gfac.jclouds;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.ApplicationDescription;
@@ -8,19 +8,15 @@ import org.apache.airavata.gfac.GFacConfiguration;
 import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
-import org.apache.airavata.gfac.handler.InHandler;
+import org.apache.airavata.gfac.jclouds.handler.InHandler;
 import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
 import org.apache.airavata.model.workspace.experiment.WorkflowNodeDetails;
 import org.apache.airavata.persistance.registry.jpa.impl.LoggingRegistryImpl;
-import org.apache.airavata.schemas.gfac.Ec2ApplicationDeploymentType;
-import org.apache.airavata.schemas.gfac.Ec2HostType;
-import org.apache.airavata.schemas.gfac.InputParameterType;
-import org.apache.airavata.schemas.gfac.StringParameterType;
-import org.apache.airavata.workflow.model.utils.MessageConstants;
+import org.apache.airavata.schemas.gfac.*;
 import org.junit.Before;
 import org.junit.Test;
-import org.apache.airavata.gfac.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.io.File;
 import java.net.URL;
@@ -37,7 +33,7 @@ import java.util.List;
 public class InHandlerTest {
     private JobExecutionContext jobExecutionContext;
     /* Username used to log into your ec2 instance eg.ec2-user */
-    private String userName = "Udara";
+    private String userName = "ec2-user";
 
     /* Secret key used to connect to the image */
     private String secretKey = "10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+";
@@ -46,9 +42,9 @@ public class InHandlerTest {
     private String accessKey = "AKIAJ3M3FUZ7PTDQP4YQ";
 
     /* Instance id of the running instance of your image */
-    private String instanceId = "i-2ec6337c";
+    private String instanceId = "i-956ab6be";
 
-    private String hostName="";
+    private String hostName="ec2";
     private String hostAddress="";
 
     private static final String inputMessage1="hfjhdGBgYBFhzBXJBSSSSSSSSHCBWUTCC>jbfhytggfv";
@@ -61,16 +57,26 @@ public class InHandlerTest {
         System.out.println(resource.getFile());
         GFacConfiguration gFacConfiguration = GFacConfiguration.create(new File(resource.getPath()), null, null);
 
+        // host
         HostDescription host = new HostDescription(Ec2HostType.type);
         host.getType().setHostName(hostName);
         host.getType().setHostAddress(hostAddress);
 
+        // app
         ApplicationDescription ec2Desc = new ApplicationDescription(Ec2ApplicationDeploymentType.type);
-        Ec2ApplicationDeploymentType ec2App = (Ec2ApplicationDeploymentType)ec2Desc.getType();
+        Ec2ApplicationDeploymentType app = (Ec2ApplicationDeploymentType)ec2Desc.getType();
+        ApplicationDeploymentDescriptionType.ApplicationName name = ApplicationDeploymentDescriptionType.ApplicationName.Factory.newInstance();
+        name.setStringValue("fileMerge");
+        app.setApplicationName(name);
+        app.setExecutableLocation("/home/ec2-user/merge.sh");
+        app.setExecutableType("sh");
+        app.setJobType(JobTypeType.EC_2);
 
+        // service
         ServiceDescription serv = new ServiceDescription();
-        serv.getType().setName("EC2Test");
+        serv.getType().setName("fileMerge");
 
+        //inputs
         List<InputParameterType> inputList = new ArrayList<InputParameterType>();
 
         InputParameterType input1=InputParameterType.Factory.newInstance();
@@ -93,8 +99,8 @@ public class InHandlerTest {
         applicationContext.setApplicationDeploymentDescription(ec2Desc);
         applicationContext.setHostDescription(host);
 
-        JCloudsSecurityContext jCloudsSecurityContext=new JCloudsSecurityContext("","","","","");
-        jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,jCloudsSecurityContext);
+        JCloudsSecurityContext securityContext=new JCloudsSecurityContext("ec2-user","aws-ec2","AKIAJ3M3FUZ7PTDQP4YQ","10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+","i-edbb72c6");
+        jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
 
         MessageContext inMessage=new MessageContext();
         ActualParameter inputParam1=new ActualParameter();

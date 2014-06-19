@@ -18,7 +18,7 @@
  * under the License.
  *
 */
-package org.apache.airavata.gfac.handler;
+package org.apache.airavata.gfac.jclouds.handler;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
@@ -26,8 +26,8 @@ import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
-import org.apache.airavata.gfac.utils.JCloudsFileTransfer;
-import org.apache.airavata.gfac.utils.JCloudsUtils;
+import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
+import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.*;
 import org.apache.airavata.registry.cpi.ChildDataType;
 import org.apache.airavata.registry.cpi.RegistryException;
