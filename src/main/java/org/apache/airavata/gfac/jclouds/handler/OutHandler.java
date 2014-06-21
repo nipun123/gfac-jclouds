@@ -21,18 +21,24 @@
 package org.apache.airavata.gfac.jclouds.handler;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
+import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.*;
 import org.apache.airavata.registry.cpi.ChildDataType;
 import org.apache.airavata.registry.cpi.RegistryException;
 import org.apache.airavata.registry.cpi.RegistryModelType;
+import org.apache.airavata.schemas.gfac.ApplicationDeploymentDescriptionType;
 import org.apache.airavata.schemas.gfac.Ec2HostType;
+import org.apache.openjpa.lib.log.Log;
+import org.jclouds.compute.domain.ExecResponse;
+import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,11 +48,18 @@ import java.util.Set;
 public class OutHandler extends AbstractHandler {
     private static final Logger log = LoggerFactory.getLogger(OutHandler.class);
     private JCloudsUtils jCloudsUtils;
+    private LoginCredentials credentials;
     private JCloudsFileTransfer fileTransfer;
+    private JCloudsSecurityContext securityContext;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
         jCloudsUtils=new JCloudsUtils();
-        fileTransfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),jCloudsUtils.getSecurityContext().getNodeId(),jCloudsUtils.getCredentials());
+        try{
+            securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+        }catch (GFacException e){
+            throw new GFacHandlerException("Error while reading security context");
+        }
+        fileTransfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),jCloudsUtils.getCredentials());
 
         if(jobExecutionContext.getApplicationContext().getHostDescription().getType() instanceof Ec2HostType){
             TaskDetails taskDetails=null;
@@ -89,11 +102,31 @@ public class OutHandler extends AbstractHandler {
     }
 
     public String stageOutputFiles(String remoteFile,String localFile){
-
-        return null;
+       return null;
     }
 
-    public void stages3Files(){
+    public void stages3Files(JobExecutionContext jobExecutionContext,String paramValue){
+        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
+        int i=paramValue.lastIndexOf("/");
+        String fileName=paramValue.substring(i+1);
+        String targetFile=null;
+        
+        try{
+            targetFile=app.getOutputDataDirectory()+"/"+fileName;
+            if (!jCloudsUtils.isS3CmdInstall(credentials)){
+                jCloudsUtils.installS3CmdOnNode(securityContext,credentials);
+            }
+            String command="s3cmd put "+targetFile+" "+paramValue;
+            ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, command, false);
+            int exitStatus=response.getExitStatus();
+            if(exitStatus ==0){
+              log.info("Sucessfully put the file "+targetFile+" to s3 ");  
+            }else{
+              log.info("fail to put the file "+targetFile+" to s3"); 
+            }
+        }catch (Exception e){
+            log.error("Error while puting file to s3");
+        }
 
     }
 

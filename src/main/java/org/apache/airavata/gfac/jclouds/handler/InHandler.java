@@ -132,14 +132,14 @@ public class InHandler extends AbstractHandler{
             targetFile=app.getInputDataDirectory()+"/"+fileName;
             transfer.uploadFileToEc2(targetFile,paramValue);
        }catch (Exception e){
-            e.printStackTrace();
+            log.error("Error while uploading file "+paramValue+" :"+e.toString());
        }
        return targetFile;
     }
 
     private String stageS3Files(JobExecutionContext jobExecutionContext,String paramValue){
        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-       int i=paramValue.lastIndexOf(File.separator);
+       int i=paramValue.lastIndexOf("/");
        String fileName=paramValue.substring(i+1);
        String targetFile=null;
        try {
@@ -148,9 +148,15 @@ public class InHandler extends AbstractHandler{
                 jCloudsUtils.installS3CmdOnNode(securityContext,credentials);
             }
             String command="s3cmd get "+paramValue+" "+targetFile;
-            jCloudsUtils.runScriptOnNode(credentials,command,false);
+            ExecResponse response=jCloudsUtils.runScriptOnNode(credentials,command,false);
+            int exitStatus=response.getExitStatus();
+            if (exitStatus==0){
+              log.info("successfully get file "+targetFile+" from s3");
+            }else{
+              log.info("fail to get file "+targetFile+" from s3");
+            }
        }catch (Exception e){
-          e.printStackTrace();
+          log.error("Error while geting file from s3 "+e.toString());
        }
        return targetFile;
     }
