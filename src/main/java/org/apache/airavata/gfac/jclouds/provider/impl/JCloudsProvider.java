@@ -28,8 +28,10 @@ import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
+import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
+import org.apache.airavata.model.workspace.experiment.JobState;
 import org.apache.airavata.schemas.gfac.Ec2ApplicationDeploymentType;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
@@ -42,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
+import java.util.Calendar;
 import java.util.Map;
 import java.util.Set;
 
@@ -50,29 +53,54 @@ public class JCloudsProvider extends AbstractProvider {
 
     private String jobID = null;
     private String taskID = null;
-    private JCloudsSecurityContext securityContext;
-    private String nodeId;
-    private ComputeService service;
-    private ComputeServiceContext context;
     private LoginCredentials credentials;
     private JCloudsUtils jCloudsUtils;
 
 
     public void initialize(JobExecutionContext jobExecutionContext) throws GFacException, GFacProviderException {
         if(jobExecutionContext==null) {
-            throw new GFacException("jobexecution context is null");
+            jobID="EC2_"+jobExecutionContext.getApplicationContext().getHostDescription().getType().getHostAddress()+"_"+ Calendar.getInstance().getTimeInMillis();
+        }else{
+            throw new GFacProviderException("Job Execution Context is null" + jobExecutionContext);
         }
         super.initialize(jobExecutionContext);
         jCloudsUtils=JCloudsUtils.getInstance();
         credentials=jCloudsUtils.getCredentials();
+        taskID=jobExecutionContext.getTaskData().getTaskID();
+
+        details.setJobID(jobID);
+        jobExecutionContext.setJobDetails(details);
+
+        GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.SETUP);
+
+
     }
 
 
     @Override
     public void execute(JobExecutionContext jobExecutionContext) throws GFacProviderException, GFacException {
         String command=buildCommand(jobExecutionContext);
-        ExecResponse response=jCloudsUtils.runScriptOnNode(credentials,command,true);
-        
+        ExecResponse response=null;
+
+        try{
+            response=jCloudsUtils.runScriptOnNode(credentials,command,true);
+        }catch (Exception e){
+            log.error("Error submitting job "+e.toString());
+            details.setJobID("none");
+            GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
+
+        }
+        response.getExitStatus();
+        if(response.getExitStatus()==0){
+           String jobResult=response.getOutput();
+           log.info("Result of the job : "+jobResult);
+           GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.COMPLETE);
+        }else{
+           String error=response.getError();
+           log.info("Job execution failed with error :"+error);
+           GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
+        }
+
     }
 
 
@@ -83,7 +111,7 @@ public class JCloudsProvider extends AbstractProvider {
         StringBuffer cmd=new StringBuffer();
         cmd.append(app.getExecutableType());
         cmd.append(SPACE);
-        cmd.append(app.getExecutableLocation());
+        cmd.append(app.getExecutable());
 
         MessageContext input=context.getInMessageContext();
         Map<String, Object> inputs = input.getParameters();
@@ -91,8 +119,8 @@ public class JCloudsProvider extends AbstractProvider {
         for(String paraName :keys){
             ActualParameter actualParameter=(ActualParameter)input.getParameter(paraName);
             String paramValue=MappingFactory.toString(actualParameter);
-            cmd.append(paramValue);
             cmd.append(SPACE);
+            cmd.append(paramValue);
         }
         return cmd.toString();
 

@@ -50,13 +50,13 @@ public class JCloudsProviderTest {
     private String userName = "ec2-user";
 
     /* Secret key used to connect to the image */
-    private String secretKey = "";
+    private String secretKey = "10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+";
 
     /* Access key used to connect to the image */
-    private String accessKey = "";
+    private String accessKey = "AKIAJ3M3FUZ7PTDQP4YQ";
 
     /* Instance id of the running instance of your image */
-    private String instanceId = "i-b95b8492";
+    private String instanceId = "i-7a18a151";
 
     private String hostName="ec2";
     private String hostAddress="";
@@ -83,7 +83,7 @@ public class JCloudsProviderTest {
         ApplicationDeploymentDescriptionType.ApplicationName name = ApplicationDeploymentDescriptionType.ApplicationName.Factory.newInstance();
         name.setStringValue("fileMerge");
         app.setApplicationName(name);
-        app.setExecutableLocation("/home/ec2-user/merge.sh");
+        app.setExecutable("/home/ec2-user/merge.sh");
         app.setExecutableType("sh");
         app.setJobType(JobTypeType.EC_2);
 
