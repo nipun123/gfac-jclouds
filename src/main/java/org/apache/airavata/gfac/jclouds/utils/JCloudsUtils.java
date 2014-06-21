@@ -37,19 +37,24 @@ import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.jclouds.compute.config.ComputeServiceProperties.TIMEOUT_SCRIPT_COMPLETE;
+import static org.jclouds.scriptbuilder.domain.Statements.call;
 import static org.jclouds.scriptbuilder.domain.Statements.exec;
 
 public class JCloudsUtils {
-    private String jobID = null;
-    private String taskID = null;
+    private static final Logger log = LoggerFactory.getLogger(JCloudsUtils.class);
     private JCloudsSecurityContext securityContext;
     private String nodeId;
     private ComputeServiceContext context;
@@ -164,7 +169,27 @@ public class JCloudsUtils {
     public void initJCloudsEnvironment(JobExecutionContext jobExecutionContext) throws GFacException {
         if(jobExecutionContext!=null){
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+        }else{
+            throw new GFacException("job execution context is null");
         }
+
+        // validate security context
+        if(securityContext.getNodeId()==null || securityContext.getNodeId().isEmpty()){
+            throw new GFacException("node id is empty");
+        }
+        if (securityContext.getProviderName()==null || securityContext.getProviderName().isEmpty()){
+            throw new GFacException("cloud provider name is empty");
+        }
+        if(securityContext.getAccessKey()==null || securityContext.getAccessKey().isEmpty()){
+            throw new GFacException("access key is empty");
+        }
+        if (securityContext.getSecretKey()==null || securityContext.getSecretKey().isEmpty()) {
+            throw new GFacException("secret key is empty");
+        }
+        if(securityContext.getUserName()==null || securityContext.getUserName().isEmpty()){
+            throw new GFacException("username is empty");
+        }
+
         nodeId=securityContext.getNodeId();
 
         Properties overides=new Properties();
@@ -179,19 +204,32 @@ public class JCloudsUtils {
                 .overrides(overides);
         context= builder.buildView(ComputeServiceContext.class);
         service=context.getComputeService();
+        startNode();
+        makeLoginCredentials();
+    }
 
+    public void makeLoginCredentials(){
         try{
-            String user=System.getProperty("user.name");
-            String privateKey= Files.toString(new File("C:/Users/" + System.getProperty("user.name")+ "/.ssh/airavata.pem"), UTF_8);
-            credentials= LoginCredentials.builder().user(securityContext.getUserName())
+            String user=securityContext.getUserName();
+            KeyPairBuilder keyPairBuilder=new KeyPairBuilder();
+            if(!keyPairBuilder.validatePrivateKeyFile() || !keyPairBuilder.validatePublicKeyFile()){
+                try{
+                   keyPairBuilder.buildNewKeyPair();
+                }catch (Exception e){
+                   log.error("fail to create new ssh keypair"+e.toString());
+                   throw new GFacException("fail to create new ssh keypair" +e.toString());
+                }
+            }else{
+                log.info("private and public keys exists");
+            }
+            File publicKeyFile=keyPairBuilder.getPublicKeyFile();
+            File privateKeyFile=keyPairBuilder.getPrivateKeyFile();
+
+            String privateKey= Files.toString(new File(System.getProperty("user.home")+ "/.ssh/ec2_rsa.pem"), UTF_8);
+            credentials= LoginCredentials.builder().user(user)
                     .privateKey(privateKey).build();
         }catch (Exception e){
-            System.out.println("error reading ssh key: "+e.toString());
-        }
-
-        NodeMetadata node=context.getComputeService().getNodeMetadata(nodeId);
-        if(node.getStatus()== NodeMetadata.Status.SUSPENDED){
-            startNode();
+           log.error("fail to create login credentials for the node");
         }
     }
 
@@ -201,13 +239,5 @@ public class JCloudsUtils {
 
     public ComputeServiceContext getContext() {
         return context;
-    }
-
-    public ComputeService getService() {
-        return context.getComputeService();
-    }
-
-    public JCloudsSecurityContext getSecurityContext() {
-        return securityContext;
     }
 }

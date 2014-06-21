@@ -165,8 +165,8 @@ public class InHandler extends AbstractHandler{
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
         String inputDataDirectory=app.getInputDataDirectory();
         String outputDataDirectory=app.getOutputDataDirectory();
-        String createDirectories=new StringBuilder().append("sudo mkdir -m 777 "+inputDataDirectory+"\n")
-                                                    .append("sudo mkdir -m 777 "+outputDataDirectory+"\n").toString();
+        String createDirectories=new StringBuilder().append("mkdir -m 777 "+inputDataDirectory+"\n")
+                                                    .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
         ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);
         try{
             if(response.getExitStatus()==0){

@@ -22,16 +22,20 @@ package org.apache.airavata.gfac.jclouds.utils;
 
 import net.schmizz.sshj.common.Base64;
 import org.bouncycastle.openssl.PEMWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 
 public class KeyPairBuilder {
+    private static final Logger log = LoggerFactory.getLogger(KeyPairBuilder.class);
     private static KeyPairBuilder keyPairBuilder;
     private File  privateKeyFile;
     private File  publicKeyFile;
     private String keyType;
+    private String keyPairName="ec2_rsa";
 
     public static KeyPairBuilder getInstance(){
         if (keyPairBuilder==null){
@@ -40,11 +44,14 @@ public class KeyPairBuilder {
         return keyPairBuilder;
     }
 
-    public void buildKeyPair(String keyPairName) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
-       String privateKeyFilePath=System.getProperty("user.home")+"/.ssh/"+keyPairName+".pem";
-       String publicKeyFilePath=System.getProperty("user.home")+"/.ssh/"+keyPairName+".pub";
-       privateKeyFile=new File(privateKeyFilePath);
-       publicKeyFile=new File(publicKeyFilePath);
+    public KeyPairBuilder(){
+        String privateKeyFilePath=System.getProperty("user.home")+"/.ssh/"+keyPairName+".pem";
+        String publicKeyFilePath=System.getProperty("user.home")+"/.ssh/"+keyPairName+".pub";
+        privateKeyFile=new File(privateKeyFilePath);
+        publicKeyFile=new File(publicKeyFilePath);
+    }
+
+    public void buildNewKeyPair() throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
 
        if(!publicKeyFile.exists()){
           File sshDir=new File(System.getProperty("user.home")+"/.ssh/");
@@ -97,24 +104,16 @@ public class KeyPairBuilder {
     }
 
     public boolean validatePrivateKeyFile(){
-        if (privateKeyFile==null){
-           System.out.println("no privateKey file defined");
-           return false;
-        }
         if (!privateKeyFile.exists()){
-           System.out.println("privateKey file do not exist");
+           log.info("privateKey file do not exist");
            return false;
         }
         return true;
     }
 
     public boolean validatePublicKeyFile(){
-        if (publicKeyFile==null){
-           System.out.println("no publicKey file defined");
-           return false;
-        }
         if (!publicKeyFile.exists()){
-           System.out.println("publicKey file do not exist");
+           log.info("publicKey file do not exist");
            return false;
         }
         return true;
