@@ -8,7 +8,7 @@ import org.apache.airavata.gfac.GFacConfiguration;
 import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
-import org.apache.airavata.gfac.jclouds.handler.OutHandler;
+import org.apache.airavata.gfac.jclouds.handler.JCloudsOutHandler;
 import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
 import org.apache.airavata.model.workspace.experiment.WorkflowNodeDetails;
@@ -36,10 +36,10 @@ public class OutHandlerTest {
     private String userName = "Udara";
 
     /* Secret key used to connect to the image */
-    private String secretKey = "";
+    private String secretKey = "10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+";
 
     /* Access key used to connect to the image */
-    private String accessKey = "";
+    private String accessKey = "AKIAJ3M3FUZ7PTDQP4YQ";
 
     /* Instance id of the running instance of your image */
     private String instanceId = "i-2ec6337c";
@@ -102,7 +102,7 @@ public class OutHandlerTest {
 
     @Test
     public void testInvoke(){
-        OutHandler outHandler=new OutHandler();
+        JCloudsOutHandler outHandler=new JCloudsOutHandler();
         try{
            outHandler.invoke(jobExecutionContext);
         }catch (Exception e){

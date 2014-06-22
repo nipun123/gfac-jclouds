@@ -35,8 +35,12 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
+import org.jclouds.scriptbuilder.domain.OsFamily;
+import org.jclouds.scriptbuilder.domain.Statement;
+import org.jclouds.scriptbuilder.statements.login.AdminAccess;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
+import org.jclouds.scriptbuilder.statements.ssh.AuthorizeRSAPublicKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,11 +48,14 @@ import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.authorizePublicKey;
 import static org.jclouds.compute.config.ComputeServiceProperties.TIMEOUT_SCRIPT_COMPLETE;
 import static org.jclouds.scriptbuilder.domain.Statements.call;
 import static org.jclouds.scriptbuilder.domain.Statements.exec;
@@ -224,6 +231,10 @@ public class JCloudsUtils {
             }
             File publicKeyFile=keyPairBuilder.getPublicKeyFile();
             File privateKeyFile=keyPairBuilder.getPrivateKeyFile();
+
+            /*List<String> publickeys=new ArrayList();
+            publickeys.add(System.getProperty("user.home")+ "/.ssh/ec2_rsa.pub");
+            String statement=new AuthorizeRSAPublicKeys(publickeys).render(OsFamily.UNIX);*/
 
             String privateKey= Files.toString(new File(System.getProperty("user.home")+ "/.ssh/ec2_rsa.pem"), UTF_8);
             credentials= LoginCredentials.builder().user(user)

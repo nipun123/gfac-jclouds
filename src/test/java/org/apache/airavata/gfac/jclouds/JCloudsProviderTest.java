@@ -28,7 +28,7 @@ import org.apache.airavata.gfac.GFacConfiguration;
 import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
-import org.apache.airavata.gfac.jclouds.handler.InHandler;
+import org.apache.airavata.gfac.jclouds.handler.JCloudsInHandler;
 import org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider;
 import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
@@ -56,7 +56,7 @@ public class JCloudsProviderTest {
     private String accessKey = "AKIAJ3M3FUZ7PTDQP4YQ";
 
     /* Instance id of the running instance of your image */
-    private String instanceId = "i-7a18a151";
+    private String instanceId = "i-b9803a92";
 
     private String hostName="ec2";
     private String hostAddress="";
@@ -166,7 +166,7 @@ public class JCloudsProviderTest {
 
     @Test
     public void testInitialize(){
-        InHandler inHandler=new InHandler();
+        JCloudsInHandler inHandler=new JCloudsInHandler();
         JCloudsProvider provider=new JCloudsProvider();
         try{
             inHandler.invoke(jobExecutionContext);

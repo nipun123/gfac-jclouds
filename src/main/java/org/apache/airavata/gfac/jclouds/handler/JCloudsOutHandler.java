@@ -36,7 +36,6 @@ import org.apache.airavata.registry.cpi.RegistryException;
 import org.apache.airavata.registry.cpi.RegistryModelType;
 import org.apache.airavata.schemas.gfac.ApplicationDeploymentDescriptionType;
 import org.apache.airavata.schemas.gfac.Ec2HostType;
-import org.apache.openjpa.lib.log.Log;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
@@ -45,8 +44,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Properties;
 import java.util.Set;
 
-public class OutHandler extends AbstractHandler {
-    private static final Logger log = LoggerFactory.getLogger(OutHandler.class);
+public class JCloudsOutHandler extends AbstractHandler {
+    private static final Logger log = LoggerFactory.getLogger(JCloudsOutHandler.class);
     private JCloudsUtils jCloudsUtils;
     private LoginCredentials credentials;
     private JCloudsFileTransfer fileTransfer;
@@ -110,7 +109,7 @@ public class OutHandler extends AbstractHandler {
         int i=paramValue.lastIndexOf("/");
         String fileName=paramValue.substring(i+1);
         String targetFile=null;
-        
+
         try{
             targetFile=app.getOutputDataDirectory()+"/"+fileName;
             if (!jCloudsUtils.isS3CmdInstall(credentials)){
@@ -120,9 +119,9 @@ public class OutHandler extends AbstractHandler {
             ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, command, false);
             int exitStatus=response.getExitStatus();
             if(exitStatus ==0){
-              log.info("Sucessfully put the file "+targetFile+" to s3 ");  
+              log.info("Sucessfully put the file "+targetFile+" to s3 ");
             }else{
-              log.info("fail to put the file "+targetFile+" to s3"); 
+              log.info("fail to put the file "+targetFile+" to s3");
             }
         }catch (Exception e){
             log.error("Error while puting file to s3");

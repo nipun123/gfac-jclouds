@@ -45,8 +45,8 @@ import java.io.File;
 import java.util.Properties;
 import java.util.Set;
 
-public class InHandler extends AbstractHandler{
-    private static final Logger log = LoggerFactory.getLogger(InHandler.class);
+public class JCloudsInHandler extends AbstractHandler{
+    private static final Logger log = LoggerFactory.getLogger(JCloudsInHandler.class);
     private JCloudsFileTransfer transfer;
     private JCloudsUtils jCloudsUtils;
     private LoginCredentials credentials;

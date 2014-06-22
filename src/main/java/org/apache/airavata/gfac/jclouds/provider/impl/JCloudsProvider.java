@@ -58,7 +58,7 @@ public class JCloudsProvider extends AbstractProvider {
 
 
     public void initialize(JobExecutionContext jobExecutionContext) throws GFacException, GFacProviderException {
-        if(jobExecutionContext==null) {
+        if(jobExecutionContext!=null) {
             jobID="EC2_"+jobExecutionContext.getApplicationContext().getHostDescription().getType().getHostAddress()+"_"+ Calendar.getInstance().getTimeInMillis();
         }else{
             throw new GFacProviderException("Job Execution Context is null" + jobExecutionContext);
