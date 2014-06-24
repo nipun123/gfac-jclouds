@@ -21,6 +21,7 @@
 package org.apache.airavata.gfac.jclouds.handler;
 
 import org.apache.airavata.commons.gfac.type.ActualParameter;
+import org.apache.airavata.commons.gfac.type.MappingFactory;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
@@ -79,9 +80,11 @@ public class JCloudsOutHandler extends AbstractHandler {
             Set<String> outputs=outMessage.getParameters().keySet();
             for(String output:outputs){
                 ActualParameter actualParameter=(ActualParameter)outMessage.getParameters().get(output);
+                String paramValue= MappingFactory.toString(actualParameter);
                 if ("URI".equals(actualParameter.getType().getType().toString())){
-
-
+                   stageOutputFiles(jobExecutionContext,paramValue);
+                }else if ("S3".equals(actualParameter.getType().getType().toString())){
+                    stages3Files(jobExecutionContext,paramValue);
                 }
                 status.setTransferState(TransferState.DOWNLOAD);
                 detail.setTransferStatus(status);
@@ -100,8 +103,19 @@ public class JCloudsOutHandler extends AbstractHandler {
         }
     }
 
-    public String stageOutputFiles(String remoteFile,String localFile){
-       return null;
+    public String stageOutputFiles(JobExecutionContext jobExecutionContext,String paramValue){
+        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
+        int i=paramValue.lastIndexOf("/");
+        String fileName=paramValue.substring(i+1);
+        String targetFile=null;
+
+        try{
+            targetFile=app.getInputDataDirectory()+"/"+fileName;
+            fileTransfer.downloadFilesFromEc2(paramValue,targetFile);
+        }catch (Exception e){
+            log.error("Error while uploading file "+paramValue+" :"+e.toString());
+        }
+        return targetFile;
     }
 
     public void stages3Files(JobExecutionContext jobExecutionContext,String paramValue){
