@@ -118,7 +118,6 @@ public class InHandlerTest {
         jobExecutionContext.setExperiment(new Experiment("test123","project1","admin","testExp"));
         jobExecutionContext.setTaskData(new TaskDetails(jobExecutionContext.getExperimentID()));
         jobExecutionContext.setRegistry(new LoggingRegistryImpl());
-        jobExecutionContext.setWorkflowNodeDetails(new WorkflowNodeDetails(jobExecutionContext.getExperimentID(),"none"));
 
     }
 

@@ -168,6 +168,9 @@ public class JCloudsInHandler extends AbstractHandler{
         String createDirectories=new StringBuilder().append("mkdir -m 777 "+inputDataDirectory+"\n")
                                                     .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
         ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);
+
+        transfer.uploadFileToEc2("/home/ec2-user/mergeString.sh","/usr/local/AiravataProject/files/mergeString.sh");
+        ExecResponse responsetemp=jCloudsUtils.runScriptOnNode(credentials,"ls",true);
         try{
             if(response.getExitStatus()==0){
                 DataTransferDetails detail = new DataTransferDetails();

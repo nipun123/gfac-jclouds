@@ -42,6 +42,7 @@ import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.Properties;
 import java.util.Set;
 
@@ -53,7 +54,7 @@ public class JCloudsOutHandler extends AbstractHandler {
     private JCloudsSecurityContext securityContext;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
-        jCloudsUtils=new JCloudsUtils();
+        jCloudsUtils=JCloudsUtils.getInstance();
         try{
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
         }catch (GFacException e){
@@ -71,11 +72,38 @@ public class JCloudsOutHandler extends AbstractHandler {
             }
 
         }
+
         super.invoke(jobExecutionContext);
         DataTransferDetails detail = new DataTransferDetails();
         TransferStatus status = new TransferStatus();
+        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
+
+        String localStdOutFile;
+        String localStdErrFile;
+        String outputdatadir=File.separator+"tmp"+File.separator+jobExecutionContext.getExperimentID()+"-"+jobExecutionContext.getTaskData().getTaskID();
+        (new File(outputdatadir)).mkdir();
+
+        localStdOutFile=outputdatadir+File.separator+"stdout";
+        localStdErrFile=outputdatadir+File.separator+"stderr";
 
         try{
+            fileTransfer.downloadFilesFromEc2(localStdOutFile,app.getStandardOutput());
+            fileTransfer.downloadFilesFromEc2(localStdErrFile,app.getStandardError());
+
+            String stdoutStr=GFacUtils.readFileToString(localStdOutFile);
+            String stderrStr=GFacUtils.readFileToString(localStdErrFile);
+
+            status.setTransferState(TransferState.COMPLETE);
+            detail.setTransferStatus(status);
+            detail.setTransferDescription("STDOUT:" + stdoutStr);
+            registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+
+            status.setTransferState(TransferState.COMPLETE);
+            detail.setTransferStatus(status);
+            detail.setTransferDescription("STDERR:" + stderrStr);
+            registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+
+
             MessageContext outMessage=jobExecutionContext.getOutMessageContext();
             Set<String> outputs=outMessage.getParameters().keySet();
             for(String output:outputs){
@@ -101,6 +129,7 @@ public class JCloudsOutHandler extends AbstractHandler {
             }
             throw new GFacHandlerException("Error in retrieving results", e);
         }
+        jCloudsUtils.stopNode();
     }
 
     public String stageOutputFiles(JobExecutionContext jobExecutionContext,String paramValue){
@@ -108,9 +137,9 @@ public class JCloudsOutHandler extends AbstractHandler {
         int i=paramValue.lastIndexOf("/");
         String fileName=paramValue.substring(i+1);
         String targetFile=null;
-
+        ExecResponse response=jCloudsUtils.runScriptOnNode(jCloudsUtils.getCredentials(),"ls /home/ec2-user/output/ -l",true);
         try{
-            targetFile=app.getInputDataDirectory()+"/"+fileName;
+            targetFile=app.getOutputDataDirectory()+"/"+fileName;
             fileTransfer.downloadFilesFromEc2(paramValue,targetFile);
         }catch (Exception e){
             log.error("Error while uploading file "+paramValue+" :"+e.toString());

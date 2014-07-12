@@ -29,6 +29,7 @@ import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.jclouds.handler.JCloudsInHandler;
+import org.apache.airavata.gfac.jclouds.handler.JCloudsOutHandler;
 import org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider;
 import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
@@ -44,7 +45,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JCloudsProviderTest {
+public class JCloudsProviderTestWithURIType {
     private JobExecutionContext jobExecutionContext;
     /* Username used to log into your ec2 instance eg.ec2-user */
     private String userName = "ec2-user";
@@ -56,14 +57,14 @@ public class JCloudsProviderTest {
     private String accessKey = "";
 
     /* Instance id of the running instance of your image */
-    private String instanceId = "";
+    private String instanceId = "i-3040241c";
 
     private String hostName="ec2";
     private String hostAddress="";
 
-    private static final String inputFile1="C:/Project/AiravataProject/Job/input1.txt";
-    private static final String inputFile2="C:/Project/AiravataProject/Job/input2.txt";
-    private static final String outputFile="C:/Project/AiravataProject/Job/output.txt";
+    private static final String inputFile1="/usr/local/AiravataProject/files/input1.txt";
+    private static final String inputFile2="/usr/local/AiravataProject/files/input2.txt";
+    private static final String outputFile="/usr/local/AiravataProject/files/output.txt";
 
     @Before
     public void setup() throws Exception{
@@ -93,6 +94,7 @@ public class JCloudsProviderTest {
 
         //Job location
         String tempDir="/home/ec2-user";
+        app.setStaticWorkingDirectory(tempDir);
         app.setInputDataDirectory(tempDir+"/input");
         app.setOutputDataDirectory(tempDir +"/output");
         app.setStandardOutput(tempDir +"/stdout");
@@ -161,17 +163,20 @@ public class JCloudsProviderTest {
         jobExecutionContext.setExperiment(new Experiment("test123","project1","admin","testExp"));
         jobExecutionContext.setTaskData(new TaskDetails(jobExecutionContext.getExperimentID()));
         jobExecutionContext.setRegistry(new LoggingRegistryImpl());
-        jobExecutionContext.setWorkflowNodeDetails(new WorkflowNodeDetails(jobExecutionContext.getExperimentID(),"none"));
+        jobExecutionContext.setGatewayID("Gateway123");
+
     }
 
     @Test
     public void testInitialize(){
         JCloudsInHandler inHandler=new JCloudsInHandler();
         JCloudsProvider provider=new JCloudsProvider();
+        JCloudsOutHandler outHandler=new JCloudsOutHandler();
         try{
             inHandler.invoke(jobExecutionContext);
             provider.initialize(jobExecutionContext);
             provider.execute(jobExecutionContext);
+            outHandler.invoke(jobExecutionContext);
         }catch (Exception e){
            System.out.println(e.toString());
         }

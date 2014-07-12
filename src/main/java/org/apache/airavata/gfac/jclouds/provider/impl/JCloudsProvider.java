@@ -90,6 +90,9 @@ public class JCloudsProvider extends AbstractProvider {
             GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
 
         }
+
+        ExecResponse re1=jCloudsUtils.runScriptOnNode(credentials,"ls /home/ec2-user/ -l",true);
+        ExecResponse re2=jCloudsUtils.runScriptOnNode(credentials,"cat /home/ec2-user/stdout",true);
         response.getExitStatus();
         if(response.getExitStatus()==0){
            String jobResult=response.getOutput();
@@ -109,6 +112,8 @@ public class JCloudsProvider extends AbstractProvider {
         Ec2ApplicationDeploymentType app=(Ec2ApplicationDeploymentType)ec2App.getType();
         String SPACE=" ";
         StringBuffer cmd=new StringBuffer();
+
+        cmd.append("cd "+app.getStaticWorkingDirectory()+"\n");
         cmd.append(app.getExecutableType());
         cmd.append(SPACE);
         cmd.append(app.getExecutable());
@@ -122,6 +127,15 @@ public class JCloudsProvider extends AbstractProvider {
             cmd.append(SPACE);
             cmd.append(paramValue);
         }
+
+        cmd.append(SPACE);
+        cmd.append("1>");
+        cmd.append(SPACE);
+        cmd.append(app.getStandardOutput());
+        cmd.append(SPACE);
+        cmd.append("2>");
+        cmd.append(SPACE);
+        cmd.append(app.getStandardError());
         return cmd.toString();
 
     }

@@ -236,7 +236,7 @@ public class JCloudsUtils {
             publickeys.add(System.getProperty("user.home")+ "/.ssh/ec2_rsa.pub");
             String statement=new AuthorizeRSAPublicKeys(publickeys).render(OsFamily.UNIX);*/
 
-            String privateKey= Files.toString(new File(System.getProperty("user.home")+ "/.ssh/ec2_rsa.pem"), UTF_8);
+            String privateKey= Files.toString(new File("/etc/ssh/.ssh/airavata.pem"), UTF_8);
             credentials= LoginCredentials.builder().user(user)
                     .privateKey(privateKey).build();
         }catch (Exception e){
