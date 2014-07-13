@@ -96,7 +96,7 @@ public class JCloudsProviderTestWithStringType extends DatabaseTestCases {
 
         executeSQL(createTable);*/
 
-        Credential credential=(Credential)(new Ec2Credential("AKIAJROJYO4DSASPFNKQ","ji9p3+10+9T+HCxVq17PE7Rt+XaleleYZCH7KgG0",null,gatewayId,userName));
+        Credential credential=(Credential)(new Ec2Credential(accessKey,secretKey,null,gatewayId,userName));
         credential.setToken("token123");
         credential.setPortalUserName(user);
         // add a ec2Credential for gatewayId gatewayABC tokenId token123
