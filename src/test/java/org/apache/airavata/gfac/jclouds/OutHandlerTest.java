@@ -84,7 +84,8 @@ public class OutHandlerTest {
         applicationContext.setApplicationDeploymentDescription(ec2Desc);
         applicationContext.setHostDescription(host);
 
-        JCloudsSecurityContext jCloudsSecurityContext=new JCloudsSecurityContext("","","","","");
+        JCloudsSecurityContext jCloudsSecurityContext=new JCloudsSecurityContext("","","",null
+        ,null);
         jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,jCloudsSecurityContext);
 
         MessageContext outMessage=new MessageContext();

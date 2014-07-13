@@ -72,8 +72,6 @@ public class JCloudsProvider extends AbstractProvider {
         jobExecutionContext.setJobDetails(details);
 
         GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.SETUP);
-
-
     }
 
 

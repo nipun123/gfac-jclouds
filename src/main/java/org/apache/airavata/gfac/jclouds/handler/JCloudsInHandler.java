@@ -68,6 +68,8 @@ public class JCloudsInHandler extends AbstractHandler{
             log.info("successfully retrived security context");
         }
 
+        securityContext.getCredentialsFromStore();
+
         jCloudsUtils=JCloudsUtils.getInstance();
         try {
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);

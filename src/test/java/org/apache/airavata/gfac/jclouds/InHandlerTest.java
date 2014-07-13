@@ -99,7 +99,7 @@ public class InHandlerTest {
         applicationContext.setApplicationDeploymentDescription(ec2Desc);
         applicationContext.setHostDescription(host);
 
-        JCloudsSecurityContext securityContext=new JCloudsSecurityContext("ec2-user","aws-ec2","AKIAJ3M3FUZ7PTDQP4YQ","10VE/FvtTuXtehmw/+buEzk3nrS+Kc4uiX+setW+","i-edbb72c6");
+        JCloudsSecurityContext securityContext=new JCloudsSecurityContext("ec2-user","aws-ec2","i-edbb72c6",null,null);
         jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
 
         MessageContext inMessage=new MessageContext();

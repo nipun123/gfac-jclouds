@@ -66,6 +66,7 @@ public class JCloudsProviderTestWithURIType {
     private static final String inputFile2="/usr/local/AiravataProject/files/input2.txt";
     private static final String outputFile="/usr/local/AiravataProject/files/output.txt";
 
+
     @Before
     public void setup() throws Exception{
         URL resource = InHandlerTest.class.getClassLoader().getResource(org.apache.airavata.common.utils.Constants.GFAC_CONFIG_XML);
@@ -135,7 +136,7 @@ public class JCloudsProviderTestWithURIType {
         applicationContext.setApplicationDeploymentDescription(ec2Desc);
         applicationContext.setHostDescription(host);
 
-        JCloudsSecurityContext securityContext=new JCloudsSecurityContext(userName,"aws-ec2",accessKey,secretKey,instanceId);
+        JCloudsSecurityContext securityContext=new JCloudsSecurityContext(userName,"aws-ec2",instanceId,null,null);
         jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
 
         MessageContext inMessage=new MessageContext();

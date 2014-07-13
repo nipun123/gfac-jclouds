@@ -20,17 +20,26 @@
 */
 package org.apache.airavata.gfac.jclouds.security;
 
+import org.apache.airavata.common.exception.ApplicationSettingsException;
+import org.apache.airavata.credential.store.credential.Credential;
+import org.apache.airavata.credential.store.credential.impl.ec2.Ec2Credential;
+import org.apache.airavata.credential.store.store.CredentialReader;
+import org.apache.airavata.credential.store.store.CredentialStoreException;
+import org.apache.airavata.gfac.AbstractSecurityContext;
+import org.apache.airavata.gfac.RequestData;
 import org.apache.airavata.gfac.SecurityContext;
+import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-public class JCloudsSecurityContext implements SecurityContext{
+public class JCloudsSecurityContext implements  SecurityContext{
     private static final Logger log = LoggerFactory.getLogger(JCloudsSecurityContext.class);
 
     public static final String JCLOUDS_SECURITY_CONTEXT="jclouds";
+
 
     private String accessKey;
     private String secretKey;
@@ -38,12 +47,64 @@ public class JCloudsSecurityContext implements SecurityContext{
     private String instanceType;
     private String nodeId;
     private String keyPair;
-    private String securityGroup;
     private File publicKey;
     private File privateKey;
     private String userName;
-    private NodeMetadata.Status status;
     private String providerName;
+    private CredentialReader credentialReader;
+    private RequestData requestData;
+
+    public JCloudsSecurityContext(String userName,String providerName,String nodeId,CredentialReader credentialReader,RequestData requestData){
+        this.nodeId=nodeId;
+        this.userName=userName;
+        this.providerName=providerName;
+        this.credentialReader=credentialReader;
+        this.requestData=requestData;
+    }
+
+    public void getCredentialsFromStore(){
+        if(getCredentialReader() ==null){
+            try {
+                setCredentialReader(GFacUtils.getCredentialReader());
+            } catch (ApplicationSettingsException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Credential credential=null;
+        try {
+            credential=credentialReader.getCredential(requestData.getGatewayId(), requestData.getTokenId());
+        } catch (CredentialStoreException e) {
+            e.printStackTrace();
+        }
+
+        if(credential!=null){
+            if(credential instanceof Ec2Credential){
+                log.info("Successfully retrive the credentials for gatewayId "+requestData.getGatewayId()+" " +
+                        "and tokenId "+requestData.getTokenId());
+
+                Ec2Credential ec2Credential=(Ec2Credential)credential;
+                accessKey=ec2Credential.getAccessKey();
+                secretKey=ec2Credential.getSecretKey();
+
+            }
+            else{
+                log.info("credential type for the gatewayId "+requestData.getGatewayId()+" and tokenId "+
+                 requestData.getTokenId()+" is not Ec2CredentialType");
+            }
+
+        }else{
+            log.info("Credential for the gateway "+requestData.getGatewayId()+" and tokenId "+requestData.getTokenId()+
+             " cannot be found");
+        }
+
+    }
 
     public String getProviderName() {
         return providerName;
@@ -73,10 +134,6 @@ public class JCloudsSecurityContext implements SecurityContext{
         return nodeId;
     }
 
-    public String getSecurityGroup() {
-        return securityGroup;
-    }
-
     public File getPublicKey() {
         return publicKey;
     }
@@ -97,19 +154,20 @@ public class JCloudsSecurityContext implements SecurityContext{
         this.privateKey = new File(privateKey);
     }
 
-    public void setStatus(NodeMetadata.Status status) {
-        this.status = status;
+
+    public CredentialReader getCredentialReader() {
+        return credentialReader;
     }
 
-    public NodeMetadata.Status getStatus() {
-        return status;
+    public void setCredentialReader(CredentialReader credentialReader) {
+        this.credentialReader = credentialReader;
     }
 
-    public JCloudsSecurityContext(String userName,String providerName,String accessKey,String secretKey,String nodeId){
-        this.accessKey=accessKey;
-        this.secretKey=secretKey;
-        this.nodeId=nodeId;
-        this.userName=userName;
-        this.providerName=providerName;
+    public RequestData getRequestData() {
+        return requestData;
+    }
+
+    public void setRequestData(RequestData requestData) {
+        this.requestData = requestData;
     }
 }
