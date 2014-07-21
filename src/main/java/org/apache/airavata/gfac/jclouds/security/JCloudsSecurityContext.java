@@ -41,8 +41,8 @@ public class JCloudsSecurityContext implements  SecurityContext{
     public static final String JCLOUDS_SECURITY_CONTEXT="jclouds";
 
 
-    private String accessKey="AKIAIWALM26TV4XKULKQ";
-    private String secretKey="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";
+    private String accessKey="";
+    private String secretKey="";
     private String amiId;
     private String instanceType;
     private String nodeId;
