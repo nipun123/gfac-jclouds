@@ -26,6 +26,9 @@ import org.apache.airavata.commons.gfac.type.MappingFactory;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
+import org.apache.airavata.gfac.core.handler.ThreadedHandler;
+import org.apache.airavata.gfac.core.notification.events.JobIDEvent;
+import org.apache.airavata.gfac.core.notification.events.StartExecutionEvent;
 import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
@@ -79,19 +82,20 @@ public class JCloudsProvider extends AbstractProvider {
     public void execute(JobExecutionContext jobExecutionContext) throws GFacProviderException, GFacException {
         String command=buildCommand(jobExecutionContext);
         ExecResponse response=null;
-
+        jobExecutionContext.getNotifier().publish(new StartExecutionEvent());
         try{
-            response=jCloudsUtils.runScriptOnNode(credentials,command,true);
+            jCloudsUtils.submitScriptToNode(credentials,command,true);
         }catch (Exception e){
             log.error("Error submitting job "+e.toString());
             details.setJobID("none");
             GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
 
         }
+        String jobStatusMessage = "submitted JobID= " + jobID;
+        log.info(jobStatusMessage);
 
-        ExecResponse re1=jCloudsUtils.runScriptOnNode(credentials,"ls /home/ec2-user/ -l",true);
-        ExecResponse re2=jCloudsUtils.runScriptOnNode(credentials,"cat /home/ec2-user/stdout",true);
-        response.getExitStatus();
+
+        /*response.getExitStatus();
         if(response.getExitStatus()==0){
            String jobResult=response.getOutput();
            log.info("Result of the job : "+jobResult);
@@ -100,7 +104,7 @@ public class JCloudsProvider extends AbstractProvider {
            String error=response.getError();
            log.info("Job execution failed with error :"+error);
            GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
-        }
+        }*/
 
     }
 
@@ -135,6 +139,18 @@ public class JCloudsProvider extends AbstractProvider {
         cmd.append(SPACE);
         cmd.append(app.getStandardError());
         return cmd.toString();
+
+    }
+
+    public void delegateToMonitorHandler(){
+        ThreadedHandler monitorHandler=null;
+
+        if((monitorHandler.getClass().getName()).equals("org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler")){
+           log.info("job launched successfully now parsing it to monitoring "+jobID);
+
+        }else{
+            log.info("No suitable handler exist for monitoring");
+        }
 
     }
 

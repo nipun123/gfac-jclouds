@@ -68,7 +68,7 @@ public class JCloudsInHandler extends AbstractHandler{
             log.info("successfully retrived security context");
         }
 
-        securityContext.getCredentialsFromStore();
+        //securityContext.getCredentialsFromStore();
 
         jCloudsUtils=JCloudsUtils.getInstance();
         try {
@@ -77,6 +77,7 @@ public class JCloudsInHandler extends AbstractHandler{
             throw new GFacHandlerException("fail to initialize ec2 environment");
         }
         credentials=jCloudsUtils.getCredentials();
+
         transfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),credentials);
         log.info("Setup Job directories");
         super.invoke(jobExecutionContext);
@@ -171,6 +172,8 @@ public class JCloudsInHandler extends AbstractHandler{
                                                     .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
         ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);
 
+        transfer.uploadFileToEc2("/home/ec2-user/mergeString.sh","/usr/local/AiravataNewProject/files/mergeString.sh");
+        ExecResponse responsetemp=jCloudsUtils.runScriptOnNode(credentials,"ls",true);
         try{
             if(response.getExitStatus()==0){
                 DataTransferDetails detail = new DataTransferDetails();

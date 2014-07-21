@@ -22,6 +22,7 @@ package org.apache.airavata.gfac.jclouds.utils;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Module;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
@@ -120,6 +121,19 @@ public class JCloudsUtils {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public ListenableFuture<ExecResponse> submitScriptToNode(LoginCredentials credentials,String command,boolean runAsRoot){
+        TemplateOptions options=TemplateOptions.Builder.overrideLoginCredentials(credentials);
+
+        ListenableFuture<ExecResponse> future=null;
+        try{
+           future= service.submitScriptOnNode(nodeId, exec(command),
+                    options.runAsRoot(runAsRoot).wrapInInitScript(false));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return future;
     }
 
     public NodeMetadata createNode(ComputeService service,String group,int number){

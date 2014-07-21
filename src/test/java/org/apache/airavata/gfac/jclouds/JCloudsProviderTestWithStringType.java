@@ -29,6 +29,8 @@ import org.apache.airavata.persistance.registry.jpa.impl.LoggingRegistryImpl;
 import org.apache.airavata.schemas.gfac.*;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -45,6 +47,7 @@ import java.util.List;
  * Created by udara on 7/8/14.
  */
 public class JCloudsProviderTestWithStringType extends DatabaseTestCases {
+
     private JobExecutionContext jobExecutionContext;
     /* Username used to log into your ec2 instance eg.ec2-user */
     private String userName = "ec2-user";
@@ -64,22 +67,21 @@ public class JCloudsProviderTestWithStringType extends DatabaseTestCases {
     private String tockenId="token123";
     private String user="user123";
 
-    private static final String inputFile1 ="avgbvhwchybbbbweegfrybrbr";
-    private static final String inputFile2="cbvyuchhHAUYsAUgbcvbbyewee";
+    private static final String inputFile1 ="palaapayayayayayayayayayayayayahukahuakahauakahauakahauakahauakahauakahauakahauakahauakahauakajhauakahjau";
+    private static final String inputFile2="atetaeaateataeataeataeataeataeataeataeapskakakapakapakapakapakapakapakapakapakapakapakapakapakapakapakapakapakaka";
 
     public void setUpDatabase() throws Exception {
         AiravataUtils.setExecutionAsServer();
 
-        System.setProperty("credential.store.keystore.url", "/usr/local/AiravataProject/airavata/modules/configuration/server/src/main/resources/airavata.jks");
+        System.setProperty("credential.store.keystore.url", "/usr/local/AiravataNewProject/airavata/modules/configuration/server/src/main/resources/airavata.jks");
         System.setProperty("credential.store.keystore.alias", "airavata");
         System.setProperty("credential.store.keystore.password", "airavata");
 
-        DerbyUtil.startDerbyInServerMode(getHostAddress(),getPort(),getUserName(),getPassword());
+/*        DerbyUtil.startDerbyInServerMode(getHostAddress(),getPort(),getUserName(),getPassword());
 
-        waitTillServerStarts();
+        waitTillServerStarts();*/
 
-/*
-        String createTable = "CREATE TABLE CREDENTIALS\n" + "(\n"
+/*        String createTable = "CREATE TABLE CREDENTIALS\n" + "(\n"
                 + "        GATEWAY_ID VARCHAR(256) NOT NULL,\n"
                 + "        TOKEN_ID VARCHAR(256) NOT NULL,\n"
                 + // Actual token used to identify the credential
@@ -94,14 +96,15 @@ public class JCloudsProviderTestWithStringType extends DatabaseTestCases {
         } catch (Exception e) {
         }
 
-        executeSQL(createTable);*/
+        executeSQL(createTable);
 
-        Credential credential=(Credential)(new Ec2Credential(accessKey,secretKey,null,gatewayId,userName));
+        Credential credential=(Credential)(new Ec2Credential("AKIAJROJYO4DSASPFNKQ","ji9p3+10+9T+HCxVq17PE7Rt+XaleleYZCH7KgG0",null,gatewayId,userName));
         credential.setToken("token123");
         credential.setPortalUserName(user);
-        // add a ec2Credential for gatewayId gatewayABC tokenId token123
+
+        add a ec2Credential for gatewayId gatewayABC tokenId token123
         Ec2CredentialWriter ec2CredentialWriter=new Ec2CredentialWriter(getDbUtil());
-        ec2CredentialWriter.writeCredentials(credential);
+        ec2CredentialWriter.writeCredentials(credential);*/
     }
 
    @Before
@@ -218,12 +221,12 @@ public class JCloudsProviderTestWithStringType extends DatabaseTestCases {
    }
 
    public JCloudsSecurityContext getSecurityContext() throws Exception{
-       DBUtil dbUtil=getDbUtil();
+       DBUtil dbUtil=null;
        RequestData data=new RequestData();
        data.setGatewayId(gatewayId);
        data.setRequestUser(user);
        data.setTokenId(tockenId);
-       CredentialReader reader=new CredentialReaderImpl(getDbUtil());
+       CredentialReader reader=new CredentialReaderImpl(dbUtil);
        JCloudsSecurityContext securityContext=new JCloudsSecurityContext(userName,"aws-ec2",instanceId,reader,data);
        return securityContext;
    }
