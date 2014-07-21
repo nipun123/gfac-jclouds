@@ -27,7 +27,7 @@ import org.apache.airavata.gfac.core.monitor.MonitorID;
 import org.jclouds.compute.domain.ExecResponse;
 
 public class JCloudsMonitorID extends MonitorID{
-    ListenableFuture<ExecResponse> future;
+    private ListenableFuture<ExecResponse> future;
 
     public JCloudsMonitorID(JobExecutionContext jobExecutionContext){
         super(jobExecutionContext);
@@ -41,3 +41,4 @@ public class JCloudsMonitorID extends MonitorID{
         this.future = future;
     }
 }
+

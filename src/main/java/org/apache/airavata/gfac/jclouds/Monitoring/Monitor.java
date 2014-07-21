@@ -22,9 +22,12 @@
 package org.apache.airavata.gfac.jclouds.Monitoring;
 
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.airavata.gfac.core.monitor.MonitorID;
 import org.apache.airavata.gfac.core.notification.MonitorPublisher;
 import org.apache.airavata.gfac.monitor.core.AiravataAbstractMonitor;
+import org.jclouds.compute.domain.ExecResponse;
 
 import java.util.concurrent.BlockingQueue;
 
@@ -50,9 +53,18 @@ public class Monitor extends AiravataAbstractMonitor {
 
         isMonitoring=true;
         while(isMonitoring){
+            System.out.println(" execute run method of Jclouds Monitor");
             try {
-                MonitorID monitorID=runningQueue.take();
-                monitor(monitorID);
+                if(runningQueue.size()!=0){
+                    MonitorID monitorID=runningQueue.take();
+                    registerListener(monitorID);
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            try{
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -60,7 +72,12 @@ public class Monitor extends AiravataAbstractMonitor {
 
     }
 
-    public void monitor(MonitorID monitorID){
+
+    public void registerListener(MonitorID monitorID){
+        JCloudsMonitorID jCloudsMonitorID=(JCloudsMonitorID)monitorID;
+        ListenableFuture<ExecResponse> future=jCloudsMonitorID.getFuture();
+
+        future.addListener(new EventListener(monitorID,future), MoreExecutors.sameThreadExecutor());
 
     }
 
@@ -85,3 +102,4 @@ public class Monitor extends AiravataAbstractMonitor {
     }
 
 }
+
