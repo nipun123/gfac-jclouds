@@ -20,18 +20,22 @@
 */
 package org.apache.airavata.gfac.jclouds.provider.impl;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.ApplicationDescription;
 import org.apache.airavata.commons.gfac.type.MappingFactory;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
+import org.apache.airavata.gfac.core.cpi.GFacImpl;
+import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.handler.ThreadedHandler;
 import org.apache.airavata.gfac.core.notification.events.JobIDEvent;
 import org.apache.airavata.gfac.core.notification.events.StartExecutionEvent;
 import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
+import org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.JobState;
@@ -48,6 +52,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -84,7 +89,8 @@ public class JCloudsProvider extends AbstractProvider {
         ExecResponse response=null;
         jobExecutionContext.getNotifier().publish(new StartExecutionEvent());
         try{
-            jCloudsUtils.submitScriptToNode(credentials,command,true);
+            ListenableFuture<ExecResponse> future=jCloudsUtils.submitScriptToNode(credentials,command,true);
+            delegateToMonitorHandler(future);
         }catch (Exception e){
             log.error("Error submitting job "+e.toString());
             details.setJobID("none");
@@ -142,14 +148,27 @@ public class JCloudsProvider extends AbstractProvider {
 
     }
 
-    public void delegateToMonitorHandler(){
+    public void delegateToMonitorHandler(ListenableFuture future){
+        List<ThreadedHandler> handlers= GFacImpl.getDaemonHandlers();
         ThreadedHandler monitorHandler=null;
 
-        if((monitorHandler.getClass().getName()).equals("org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler")){
-           log.info("job launched successfully now parsing it to monitoring "+jobID);
+        for(ThreadedHandler threadedHandler:handlers){
+            if((threadedHandler.getClass().getName()).equals("org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler")){
+                log.info("job launched successfully now parsing it to monitoring "+jobID);
+                monitorHandler=threadedHandler;
 
+            }
+        }
+
+        if(monitorHandler==null){
+            log.info("No suitable handler exist to monitor job");
         }else{
-            log.info("No suitable handler exist for monitoring");
+            try {
+                ((JCloudMonitorHandler)monitorHandler).setLatestFuture(future);
+                monitorHandler.invoke(jobExecutionContext);
+            } catch (GFacHandlerException e) {
+                e.printStackTrace();
+            }
         }
 
     }

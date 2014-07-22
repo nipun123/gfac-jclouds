@@ -21,15 +21,18 @@
 
 package org.apache.airavata.gfac.jclouds.Monitoring;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.airavata.common.exception.ApplicationSettingsException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.cpi.GFacImpl;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.handler.ThreadedHandler;
 import org.apache.airavata.gfac.core.monitor.MonitorID;
+import org.jclouds.compute.domain.ExecResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -37,6 +40,7 @@ public class JCloudMonitorHandler extends ThreadedHandler{
     private final static Logger logger= LoggerFactory.getLogger(JCloudMonitorHandler.class);
 
     private Monitor monitor;
+    private ListenableFuture<ExecResponse> latestFuture,previousFuture;
 
     @Override
     public void initProperties(Properties properties) throws GFacHandlerException {
@@ -58,8 +62,14 @@ public class JCloudMonitorHandler extends ThreadedHandler{
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException {
         super.invoke(jobExecutionContext);
-        MonitorID monitorID=new JCloudsMonitorID(jobExecutionContext);
-        monitor.getRunningQueue().add(monitorID);
+        if(previousFuture==latestFuture){
+            logger.info("the future is not set for this job");
+        }else{
+            MonitorID monitorID=new JCloudsMonitorID(jobExecutionContext,latestFuture);
+            monitor.getRunningQueue().add(monitorID);
+            previousFuture=latestFuture;
+        }
+
     }
 
     public Monitor getMonitor() {
@@ -70,5 +80,12 @@ public class JCloudMonitorHandler extends ThreadedHandler{
         this.monitor = monitor;
     }
 
-}
+    public ListenableFuture<ExecResponse> getLatestFuture() {
+        return latestFuture;
+    }
 
+    public void setLatestFuture(ListenableFuture<ExecResponse> latestFuture) {
+        this.latestFuture = latestFuture;
+    }
+
+}

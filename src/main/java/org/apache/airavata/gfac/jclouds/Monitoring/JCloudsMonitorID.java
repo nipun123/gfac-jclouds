@@ -29,8 +29,9 @@ import org.jclouds.compute.domain.ExecResponse;
 public class JCloudsMonitorID extends MonitorID{
     private ListenableFuture<ExecResponse> future;
 
-    public JCloudsMonitorID(JobExecutionContext jobExecutionContext){
+    public JCloudsMonitorID(JobExecutionContext jobExecutionContext,ListenableFuture future){
         super(jobExecutionContext);
+        this.future=future;
     }
 
     public ListenableFuture<ExecResponse> getFuture() {
@@ -41,4 +42,3 @@ public class JCloudsMonitorID extends MonitorID{
         this.future = future;
     }
 }
-
