@@ -28,6 +28,7 @@ import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
+import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.*;
@@ -60,7 +61,7 @@ public class JCloudsInHandler extends AbstractHandler{
         try{
            securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
         } catch (GFacException e) {
-           e.printStackTrace();
+           log.error("Error occur in retriveing the security context");
         }
         if (securityContext==null){
             throw new GFacHandlerException("security context is not properly set");
@@ -68,9 +69,9 @@ public class JCloudsInHandler extends AbstractHandler{
             log.info("successfully retrived security context");
         }
 
-        //securityContext.getCredentialsFromStore();
-
+        securityContext.getCredentialsFromStore();
         jCloudsUtils=JCloudsUtils.getInstance();
+
         try {
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
         }catch (GFacException e){
@@ -108,10 +109,15 @@ public class JCloudsInHandler extends AbstractHandler{
                inputNew.getParameters().put(paramName,actualParameter);
                status.setTransferState(TransferState.UPLOAD);
                detail.setTransferStatus(status);
-               registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+               try {
+                   registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+               } catch (RegistryException e) {
+                   log.error("error while persisting the file transfer details");
+                   throw new GFacHandlerException("Error persisting error details", e, e.getLocalizedMessage());
+               }
 
            }
-        }catch (Exception e){
+        }catch (GFacHandlerException e){
             log.error(e.getMessage());
             status.setTransferState(TransferState.FAILED);
             detail.setTransferStatus(status);
@@ -119,14 +125,14 @@ public class JCloudsInHandler extends AbstractHandler{
                 GFacUtils.saveErrorDetails(jobExecutionContext, e.getLocalizedMessage(), CorrectiveAction.CONTACT_SUPPORT, ErrorCategory.FILE_SYSTEM_FAILURE);
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
             }catch (Exception e1){
-                throw new GFacHandlerException("Error persisting status", e1, e1.getLocalizedMessage());
+                throw new GFacHandlerException("Error persisting error details", e1, e1.getLocalizedMessage());
             }
             throw new GFacHandlerException("Error while input File Staging", e, e.getLocalizedMessage());
         }
         jobExecutionContext.setInMessageContext(inputNew);
     }
 
-    private String stageInputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws Exception{
+    private String stageInputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws GFacHandlerException{
        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
        int i=paramValue.lastIndexOf("/");
        String fileName=paramValue.substring(i+1);
@@ -134,8 +140,9 @@ public class JCloudsInHandler extends AbstractHandler{
        try{
             targetFile=app.getInputDataDirectory()+"/"+fileName;
             transfer.uploadFileToEc2(targetFile,paramValue);
-       }catch (Exception e){
+       }catch (FileTransferException e){
             log.error("Error while uploading file "+paramValue+" :"+e.toString());
+            throw new GFacHandlerException("error occured "+e.getLocalizedMessage());
        }
        return targetFile;
     }
@@ -172,8 +179,6 @@ public class JCloudsInHandler extends AbstractHandler{
                                                     .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
         ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);
 
-        transfer.uploadFileToEc2("/home/ec2-user/mergeString.sh","/usr/local/AiravataNewProject/files/mergeString.sh");
-        ExecResponse responsetemp=jCloudsUtils.runScriptOnNode(credentials,"ls",true);
         try{
             if(response.getExitStatus()==0){
                 DataTransferDetails detail = new DataTransferDetails();
@@ -200,3 +205,4 @@ public class JCloudsInHandler extends AbstractHandler{
     public void initProperties(Properties properties) throws GFacHandlerException {
     }
 }
+

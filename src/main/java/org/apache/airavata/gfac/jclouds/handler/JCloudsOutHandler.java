@@ -28,6 +28,7 @@ import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
+import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
@@ -43,6 +44,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Properties;
 import java.util.Set;
 
@@ -57,9 +60,11 @@ public class JCloudsOutHandler extends AbstractHandler {
         jCloudsUtils=JCloudsUtils.getInstance();
         try{
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+            jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
         }catch (GFacException e){
-            throw new GFacHandlerException("Error while reading security context");
+            throw new GFacHandlerException("Error while reading security context or initialising ec2 environment");
         }
+
         fileTransfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),jCloudsUtils.getCredentials());
 
         if(jobExecutionContext.getApplicationContext().getHostDescription().getType() instanceof Ec2HostType){
@@ -118,21 +123,29 @@ public class JCloudsOutHandler extends AbstractHandler {
                 detail.setTransferStatus(status);
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
             }
-        }catch (Exception e){
+        }catch (GFacHandlerException e){
             try {
                 status.setTransferState(TransferState.FAILED);
                 detail.setTransferStatus(status);
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
                 GFacUtils.saveErrorDetails(jobExecutionContext, e.getLocalizedMessage(), CorrectiveAction.CONTACT_SUPPORT, ErrorCategory.FILE_SYSTEM_FAILURE);
             } catch (Exception e1) {
-                throw new GFacHandlerException("Error persisting status", e1, e1.getLocalizedMessage());
+                throw new GFacHandlerException("Error persisting error details", e1, e1.getLocalizedMessage());
             }
             throw new GFacHandlerException("Error in retrieving results", e);
+        } catch (FileTransferException e) {
+            log.error("Error occured while file transfering "+e.getLocalizedMessage());
+        } catch (FileNotFoundException e) {
+            log.error("Could not found stdout or stderr file "+e.getLocalizedMessage());
+        } catch (IOException e) {
+            log.error("Error occured "+e.getLocalizedMessage());
+        } catch (RegistryException e) {
+            log.error("Error occured while persisting data "+e.getLocalizedMessage());
         }
         jCloudsUtils.stopNode();
     }
 
-    public String stageOutputFiles(JobExecutionContext jobExecutionContext,String paramValue){
+    public String stageOutputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws GFacHandlerException {
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
         int i=paramValue.lastIndexOf("/");
         String fileName=paramValue.substring(i+1);
@@ -141,8 +154,9 @@ public class JCloudsOutHandler extends AbstractHandler {
         try{
             targetFile=app.getOutputDataDirectory()+"/"+fileName;
             fileTransfer.downloadFilesFromEc2(paramValue,targetFile);
-        }catch (Exception e){
-            log.error("Error while uploading file "+paramValue+" :"+e.toString());
+        }catch (FileTransferException e){
+            log.error("Error while downloading file "+paramValue+" :"+e.toString());
+            throw new GFacHandlerException("Error occured while while doenloading file "+e.getLocalizedMessage());
         }
         return targetFile;
     }
@@ -176,3 +190,4 @@ public class JCloudsOutHandler extends AbstractHandler {
     public void initProperties(Properties properties) throws GFacHandlerException {
     }
 }
+

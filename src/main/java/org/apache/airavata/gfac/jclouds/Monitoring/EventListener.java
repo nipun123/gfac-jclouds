@@ -5,6 +5,7 @@ import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.cpi.GFacImpl;
 import org.apache.airavata.gfac.core.monitor.MonitorID;
+import org.apache.airavata.model.workspace.experiment.JobState;
 import org.jclouds.compute.domain.ExecResponse;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +42,13 @@ public class EventListener implements Runnable {
 
                 if(future.isDone()){
                     ExecResponse response=future.get();
-                    JobExecutionContext jobExecutionContext=monitorID.getJobExecutionContext();
-                    jobExecutionContext.getGfac().invokeOutFlowHandlers(jobExecutionContext);
+                    int status=response.getExitStatus();
+
+                    if(status==0){
+                      monitorID.setStatus(JobState.COMPLETE);
+                    }else if(status==127){
+                      monitorID.setStatus(JobState.FAILED);
+                    }
                 }else{
                     log.info("the job is not done");
                 }
@@ -51,9 +57,8 @@ public class EventListener implements Runnable {
             e.printStackTrace();
         } catch (ExecutionException e) {
             e.printStackTrace();
-        } catch (GFacException e) {
-            e.printStackTrace();
         }
 
     }
 }
+

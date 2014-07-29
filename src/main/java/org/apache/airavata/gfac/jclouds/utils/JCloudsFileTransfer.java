@@ -23,7 +23,9 @@ package org.apache.airavata.gfac.jclouds.utils;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
+import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
 import org.jclouds.compute.ComputeServiceContext;
+import org.jclouds.compute.domain.ExecChannel;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -32,6 +34,8 @@ import org.jclouds.io.ByteSources;
 import org.jclouds.io.Payload;
 import org.jclouds.io.payloads.ByteSourcePayload;
 import org.jclouds.ssh.SshClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -39,6 +43,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 
 public class JCloudsFileTransfer {
+    private static final Logger log = LoggerFactory.getLogger(JCloudsFileTransfer.class);
     private SshClient ssh;
 
     public JCloudsFileTransfer(ComputeServiceContext context,String nodeId,LoginCredentials credentials){
@@ -47,7 +52,7 @@ public class JCloudsFileTransfer {
                 .credentials(credentials).build());
     }
 
-    public void uploadFileToEc2(String remoteFile,String localFile){
+    public void uploadFileToEc2(String remoteFile,String localFile) throws FileTransferException {
         try{
           ssh.connect();
           File file=new File(localFile);
@@ -57,7 +62,8 @@ public class JCloudsFileTransfer {
           ssh.put(remoteFile, payload);
 
         }catch (Exception e){
-           e.printStackTrace();
+            log.error("Error occured while uploading file to ec2");
+            throw new FileTransferException("Error occured while uploading file "+remoteFile+" to ec2 host");
         }finally {
             if (ssh!=null){
                 ssh.disconnect();
@@ -66,7 +72,7 @@ public class JCloudsFileTransfer {
 
     }
 
-    public void downloadFilesFromEc2(String localFile,String remoteFile){
+    public void downloadFilesFromEc2(String localFile,String remoteFile) throws FileTransferException {
         FileOutputStream ops;
         try{
           ssh.connect();
@@ -79,11 +85,25 @@ public class JCloudsFileTransfer {
           inputStream.close();
           ops.close();
        }catch (Exception e){
-          e.printStackTrace();
+          log.error("Error occured while downloading file from ec2");
+          throw new FileTransferException("Error occured while downloading file "+remoteFile+" from ec2 host");
        }finally
         {
            if(ssh!=null)
                ssh.disconnect();
         }
     }
+
+    public ExecChannel execCommand(String command){
+        ExecChannel channel=null;
+        try{
+            ssh.connect();
+            channel=ssh.execChannel(command);
+
+        }catch (Exception e){
+            log.error("error in getting the execChannel");
+        }
+        return  channel;
+    }
 }
+

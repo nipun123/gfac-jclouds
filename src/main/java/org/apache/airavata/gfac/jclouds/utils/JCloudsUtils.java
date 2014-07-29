@@ -21,11 +21,11 @@
 package org.apache.airavata.gfac.jclouds.utils;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Module;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
+import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
@@ -36,29 +36,16 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.logging.log4j.config.Log4JLoggingModule;
-import org.jclouds.scriptbuilder.domain.OsFamily;
-import org.jclouds.scriptbuilder.domain.Statement;
-import org.jclouds.scriptbuilder.statements.login.AdminAccess;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
-import org.jclouds.scriptbuilder.statements.ssh.AuthorizeRSAPublicKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions.Builder.authorizePublicKey;
 import static org.jclouds.compute.config.ComputeServiceProperties.TIMEOUT_SCRIPT_COMPLETE;
-import static org.jclouds.scriptbuilder.domain.Statements.call;
 import static org.jclouds.scriptbuilder.domain.Statements.exec;
 
 public class JCloudsUtils {
@@ -226,31 +213,23 @@ public class JCloudsUtils {
         context= builder.buildView(ComputeServiceContext.class);
         service=context.getComputeService();
         startNode();
-        makeLoginCredentials();
+        try {
+            makeLoginCredentials();
+        } catch (PublicKeyException e) {
+            log.error("Failed to create login credentials for the node");
+            throw new GFacException("Failed to create login credentials for the node");
+        }
     }
 
-    public void makeLoginCredentials(){
+    private void makeLoginCredentials() throws PublicKeyException {
+        String user=securityContext.getUserName();
+
+        String privateKey=securityContext.getPublicKey();
+        if(privateKey==null || privateKey.equals("")){
+            log.info("the public key for the node does not valid");
+            throw new PublicKeyException("the public key for the node does not valid");
+        }
         try{
-            String user=securityContext.getUserName();
-            KeyPairBuilder keyPairBuilder=new KeyPairBuilder();
-            if(!keyPairBuilder.validatePrivateKeyFile() || !keyPairBuilder.validatePublicKeyFile()){
-                try{
-                   keyPairBuilder.buildNewKeyPair();
-                }catch (Exception e){
-                   log.error("fail to create new ssh keypair"+e.toString());
-                   throw new GFacException("fail to create new ssh keypair" +e.toString());
-                }
-            }else{
-                log.info("private and public keys exists");
-            }
-            File publicKeyFile=keyPairBuilder.getPublicKeyFile();
-            File privateKeyFile=keyPairBuilder.getPrivateKeyFile();
-
-            /*List<String> publickeys=new ArrayList();
-            publickeys.add(System.getProperty("user.home")+ "/.ssh/ec2_rsa.pub");
-            String statement=new AuthorizeRSAPublicKeys(publickeys).render(OsFamily.UNIX);*/
-
-            String privateKey= Files.toString(new File("/etc/ssh/.ssh/airavata.pem"), UTF_8);
             credentials= LoginCredentials.builder().user(user)
                     .privateKey(privateKey).build();
         }catch (Exception e){
@@ -266,3 +245,4 @@ public class JCloudsUtils {
         return context;
     }
 }
+

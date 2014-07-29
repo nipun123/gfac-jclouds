@@ -34,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 
 public class JCloudsSecurityContext implements  SecurityContext{
     private static final Logger log = LoggerFactory.getLogger(JCloudsSecurityContext.class);
@@ -41,14 +42,12 @@ public class JCloudsSecurityContext implements  SecurityContext{
     public static final String JCLOUDS_SECURITY_CONTEXT="jclouds";
 
 
-    private String accessKey="";
-    private String secretKey="";
+    private String accessKey;
+    private String secretKey;
     private String amiId;
     private String instanceType;
     private String nodeId;
-    private String keyPair;
-    private File publicKey;
-    private File privateKey;
+    private String publicKey;
     private String userName;
     private String providerName;
     private CredentialReader credentialReader;
@@ -62,7 +61,7 @@ public class JCloudsSecurityContext implements  SecurityContext{
         this.requestData=requestData;
     }
 
-    public void getCredentialsFromStore(){
+    public void getCredentialsFromStore() {
         if(getCredentialReader() ==null){
             try {
                 setCredentialReader(GFacUtils.getCredentialReader());
@@ -92,6 +91,11 @@ public class JCloudsSecurityContext implements  SecurityContext{
                 Ec2Credential ec2Credential=(Ec2Credential)credential;
                 accessKey=ec2Credential.getAccessKey();
                 secretKey=ec2Credential.getSecretKey();
+                try {
+                    publicKey=new String(ec2Credential.getPublickey(), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
 
             }
             else{
@@ -126,34 +130,21 @@ public class JCloudsSecurityContext implements  SecurityContext{
         return amiId;
     }
 
-    public String getKeyPair() {
-        return keyPair;
-    }
-
     public String getNodeId() {
         return nodeId;
     }
 
-    public File getPublicKey() {
+    public String getPublicKey() {
         return publicKey;
     }
 
     public void setPublicKey(String publicKey) {
-        this.publicKey = new File(publicKey);
+        this.publicKey = publicKey;
     }
 
     public String getUserName() {
         return userName;
     }
-
-    public File getPrivateKey() {
-        return privateKey;
-    }
-
-    public void setPrivateKey(String privateKey) {
-        this.privateKey = new File(privateKey);
-    }
-
 
     public CredentialReader getCredentialReader() {
         return credentialReader;
@@ -171,3 +162,4 @@ public class JCloudsSecurityContext implements  SecurityContext{
         this.requestData = requestData;
     }
 }
+

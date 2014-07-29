@@ -24,18 +24,26 @@ package org.apache.airavata.gfac.jclouds.Monitoring;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import org.apache.airavata.gfac.core.cpi.GFac;
+import org.apache.airavata.gfac.GFacException;
+import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.monitor.MonitorID;
-import org.apache.airavata.gfac.core.notification.MonitorPublisher;
+import org.apache.airavata.common.utils.MonitorPublisher;
+import org.apache.airavata.gfac.core.monitor.TaskIdentity;
+import org.apache.airavata.gfac.core.monitor.state.TaskStatusChangeRequest;
 import org.apache.airavata.gfac.monitor.core.AiravataAbstractMonitor;
+import org.apache.airavata.model.workspace.experiment.JobState;
+import org.apache.airavata.model.workspace.experiment.TaskState;
 import org.jclouds.compute.domain.ExecResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 
 public class Monitor extends AiravataAbstractMonitor {
+    private static final Logger log = LoggerFactory.getLogger(Monitor.class);
 
     private BlockingQueue<MonitorID> runningQueue;
-
     private BlockingQueue<MonitorID> finishQueue;
     private MonitorPublisher publisher;
     private boolean isMonitoring;
@@ -45,8 +53,6 @@ public class Monitor extends AiravataAbstractMonitor {
         this.publisher = publisher;
         this.runningQueue = runningQueue;
         this.finishQueue = finishQueue;
-        this.publisher = new MonitorPublisher(new EventBus());
-        this.publisher.registerListener(this);
 
     }
 
@@ -54,31 +60,56 @@ public class Monitor extends AiravataAbstractMonitor {
 
         isMonitoring=true;
         while(isMonitoring){
-            System.out.println(" execute run method of Jclouds Monitor");
             try {
                 if(runningQueue.size()!=0){
                     MonitorID monitorID=runningQueue.take();
-                    System.out.println("********************************************************* ");
                     registerListener(monitorID);
                 }
+                monitorQueuedJobs();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
             try{
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
-
     }
 
     public void registerListener(MonitorID monitorID){
         JCloudsMonitorID jCloudsMonitorID=(JCloudsMonitorID)monitorID;
         ListenableFuture<ExecResponse> future=jCloudsMonitorID.getFuture();
         future.addListener(new EventListener(monitorID,future), MoreExecutors.sameThreadExecutor());
+        jCloudsMonitorID.setStatus(JobState.ACTIVE);
+        finishQueue.add(jCloudsMonitorID);
 
+    }
+
+    public void monitorQueuedJobs(){
+
+            Iterator<MonitorID> iterator = finishQueue.iterator();
+            MonitorID next = null;
+            while(iterator.hasNext()){
+                next = iterator.next();
+                if(next.getStatus()== JobState.COMPLETE){
+                    JobExecutionContext jobExecutionContext=next.getJobExecutionContext();
+                    try {
+                        jobExecutionContext.getGfac().invokeOutFlowHandlers(jobExecutionContext);
+                        publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
+                                next.getTaskID()), TaskState.COMPLETED));
+                    } catch (GFacException e) {
+                        log.error("Error occured in while output handling");
+                        publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
+                                next.getTaskID()), TaskState.FAILED));
+                    }
+                    finishQueue.remove(next);
+                }else if(next.getStatus()== JobState.FAILED){
+                    finishQueue.remove(next);
+                    publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
+                            next.getTaskID()), TaskState.FAILED));
+                }
+            }
     }
 
     public BlockingQueue<MonitorID> getRunningQueue() {
@@ -102,3 +133,4 @@ public class Monitor extends AiravataAbstractMonitor {
     }
 
 }
+

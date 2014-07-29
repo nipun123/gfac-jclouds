@@ -22,8 +22,8 @@ import java.util.UUID;
  */
 public class Ec2_credentialTest {
     DBUtil dbUtil;
-    String accessKey="gsvycnvnvnmmhp9vp395u85M65y65kjVHUihyhrqu";
-    String secretKey="HVGCU9UJD8RYgtvmhfhv5vy575h3i4utbcgRH92{rgtbnth-DBUtil0_dbUtilj4GTYHIjrtri";
+    String accessKey="";
+    String secretKey="";
 
     @Before
     public void setupCredentialStore() throws IllegalAccessException, ClassNotFoundException, InstantiationException, SQLException {
@@ -67,6 +67,7 @@ public class Ec2_credentialTest {
         System.out.println("TokenId: " + uuid.toString());
         credential.setToken(uuid.toString());
         credential.setPortalUserName("user123");
+
         // write credential
         Ec2CredentialWriter writer=new Ec2CredentialWriter(dbUtil);
         try {
