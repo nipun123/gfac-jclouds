@@ -35,7 +35,7 @@ import org.apache.airavata.gfac.core.notification.events.StartExecutionEvent;
 import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
-import org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler;
+import org.apache.airavata.gfac.jclouds.monitoring.JCloudMonitorHandler;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.JobState;
@@ -156,7 +156,6 @@ public class JCloudsProvider extends AbstractProvider {
             if((threadedHandler.getClass().getName()).equals("org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler")){
                 log.info("job launched successfully now parsing it to monitoring "+jobID);
                 monitorHandler=threadedHandler;
-
             }
         }
 
