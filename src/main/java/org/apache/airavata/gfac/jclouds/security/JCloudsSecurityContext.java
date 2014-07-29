@@ -96,18 +96,15 @@ public class JCloudsSecurityContext implements  SecurityContext{
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
                 }
-
             }
             else{
                 log.info("credential type for the gatewayId "+requestData.getGatewayId()+" and tokenId "+
                  requestData.getTokenId()+" is not Ec2CredentialType");
             }
-
         }else{
             log.info("Credential for the gateway "+requestData.getGatewayId()+" and tokenId "+requestData.getTokenId()+
              " cannot be found");
         }
-
     }
 
     public String getProviderName() {
