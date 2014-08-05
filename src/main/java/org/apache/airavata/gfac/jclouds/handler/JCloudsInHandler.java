@@ -55,22 +55,23 @@ public class JCloudsInHandler extends AbstractHandler{
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
         log.info("Invoking Handler");
+        jCloudsUtils=JCloudsUtils.getInstance();
         if (jobExecutionContext==null){
-            throw new GFacHandlerException("JobExecution is null");
+            throw new GFacHandlerException("JobExecutionContext is null");
         }
         try{
            securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+            if (securityContext==null){
+                jCloudsUtils.addSecurityContext(jobExecutionContext);
+                securityContext=jCloudsUtils.getSecurityContext();
+            }else{
+                log.info("successfully retrived security context");
+            }
         } catch (GFacException e) {
            log.error("Error occur in retriveing the security context");
         }
-        if (securityContext==null){
-            throw new GFacHandlerException("security context is not properly set");
-        }else{
-            log.info("successfully retrived security context");
-        }
 
         securityContext.getCredentialsFromStore();
-        jCloudsUtils=JCloudsUtils.getInstance();
 
         try {
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
@@ -109,6 +110,7 @@ public class JCloudsInHandler extends AbstractHandler{
                inputNew.getParameters().put(paramName,actualParameter);
                status.setTransferState(TransferState.UPLOAD);
                detail.setTransferStatus(status);
+               detail.setTransferDescription("uploaded file to ec2");
                try {
                    registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
                } catch (RegistryException e) {
@@ -121,6 +123,7 @@ public class JCloudsInHandler extends AbstractHandler{
             log.error(e.getMessage());
             status.setTransferState(TransferState.FAILED);
             detail.setTransferStatus(status);
+            detail.setTransferDescription("failed file transfer");
             try{
                 GFacUtils.saveErrorDetails(jobExecutionContext, e.getLocalizedMessage(), CorrectiveAction.CONTACT_SUPPORT, ErrorCategory.FILE_SYSTEM_FAILURE);
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
@@ -185,6 +188,7 @@ public class JCloudsInHandler extends AbstractHandler{
                 TransferStatus status = new TransferStatus();
                 status.setTransferState(TransferState.DIRECTORY_SETUP);
                 detail.setTransferStatus(status);
+                detail.setTransferDescription("directory set up successful");
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
             }else if(response.getExitStatus()==1){
                 log.info("input data directory and outputdata directory already exist");
@@ -194,6 +198,7 @@ public class JCloudsInHandler extends AbstractHandler{
                 TransferStatus status = new TransferStatus();
                 status.setTransferState(TransferState.FAILED);
                 detail.setTransferStatus(status);
+                detail.setTransferDescription("directory set up fail");
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
             }
         }catch (RegistryException re){

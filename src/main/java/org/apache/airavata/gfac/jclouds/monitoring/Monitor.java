@@ -19,20 +19,25 @@
  *
 */
 
-package org.apache.airavata.gfac.jclouds.monitoring;
+package org.apache.airavata.gfac.jclouds.Monitoring;
 
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
+import org.apache.airavata.gfac.core.monitor.JobIdentity;
 import org.apache.airavata.gfac.core.monitor.MonitorID;
 import org.apache.airavata.common.utils.MonitorPublisher;
 import org.apache.airavata.gfac.core.monitor.TaskIdentity;
+import org.apache.airavata.gfac.core.monitor.state.JobStatusChangeRequest;
 import org.apache.airavata.gfac.core.monitor.state.TaskStatusChangeRequest;
+import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.apache.airavata.gfac.monitor.core.AiravataAbstractMonitor;
+import org.apache.airavata.model.workspace.experiment.JobDetails;
 import org.apache.airavata.model.workspace.experiment.JobState;
 import org.apache.airavata.model.workspace.experiment.TaskState;
+import org.apache.airavata.persistance.registry.jpa.model.JobDetail;
 import org.jclouds.compute.domain.ExecResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +58,6 @@ public class Monitor extends AiravataAbstractMonitor {
         this.publisher = publisher;
         this.runningQueue = runningQueue;
         this.finishQueue = finishQueue;
-
     }
 
     public void run(){
@@ -96,10 +100,14 @@ public class Monitor extends AiravataAbstractMonitor {
                     JobExecutionContext jobExecutionContext=next.getJobExecutionContext();
                     try {
                         jobExecutionContext.getGfac().invokeOutFlowHandlers(jobExecutionContext);
+
+                        JobDetails details=next.getJobExecutionContext().getJobDetails();
+                        details.setJobDescription("job completed");
+                        GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.COMPLETE);
                         publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
                                 next.getTaskID()), TaskState.COMPLETED));
                     } catch (GFacException e) {
-                        log.error("Error occured in while output handling");
+                        log.error("Error occured while output handling");
                         publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
                                 next.getTaskID()), TaskState.FAILED));
                     }

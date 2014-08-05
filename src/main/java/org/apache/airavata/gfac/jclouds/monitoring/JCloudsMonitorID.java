@@ -19,7 +19,7 @@
  *
 */
 
-package org.apache.airavata.gfac.jclouds.monitoring;
+package org.apache.airavata.gfac.jclouds.Monitoring;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
@@ -42,3 +42,4 @@ public class JCloudsMonitorID extends MonitorID{
         this.future = future;
     }
 }
+

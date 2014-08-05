@@ -60,6 +60,9 @@ public class JCloudsOutHandler extends AbstractHandler {
         jCloudsUtils=JCloudsUtils.getInstance();
         try{
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+            if(securityContext==null){
+                jCloudsUtils.addSecurityContext(jobExecutionContext);
+            }
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
         }catch (GFacException e){
             throw new GFacHandlerException("Error while reading security context or initialising ec2 environment");
@@ -121,12 +124,14 @@ public class JCloudsOutHandler extends AbstractHandler {
                 }
                 status.setTransferState(TransferState.DOWNLOAD);
                 detail.setTransferStatus(status);
+                detail.setTransferDescription("file down complete");
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
             }
         }catch (GFacHandlerException e){
             try {
                 status.setTransferState(TransferState.FAILED);
                 detail.setTransferStatus(status);
+                detail.setTransferDescription("file down failed");
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
                 GFacUtils.saveErrorDetails(jobExecutionContext, e.getLocalizedMessage(), CorrectiveAction.CONTACT_SUPPORT, ErrorCategory.FILE_SYSTEM_FAILURE);
             } catch (Exception e1) {
@@ -176,7 +181,7 @@ public class JCloudsOutHandler extends AbstractHandler {
             ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, command, false);
             int exitStatus=response.getExitStatus();
             if(exitStatus ==0){
-              log.info("Sucessfully put the file "+targetFile+" to s3 ");
+              log.info("Successfully put the file "+targetFile+" to s3 ");
             }else{
               log.info("fail to put the file "+targetFile+" to s3");
             }

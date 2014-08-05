@@ -23,6 +23,7 @@ package org.apache.airavata.gfac.jclouds;
 
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import org.apache.airavata.api.client.AiravataClientFactory;
 import org.apache.airavata.client.AiravataAPIFactory;
 import org.apache.airavata.client.api.AiravataAPI;
 import org.apache.airavata.client.api.exception.AiravataAPIInvocationException;
@@ -45,6 +46,7 @@ import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.cpi.BetterGfacImpl;
+import org.apache.airavata.gfac.core.cpi.GFac;
 import org.apache.airavata.gfac.core.cpi.GFacImpl;
 import org.apache.airavata.gfac.core.monitor.state.JobStatusChangeRequest;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
@@ -53,11 +55,12 @@ import org.apache.airavata.gfac.jclouds.handler.JCloudsInHandler;
 import org.apache.airavata.gfac.jclouds.handler.JCloudsOutHandler;
 import org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
-import org.apache.airavata.model.workspace.experiment.Experiment;
-import org.apache.airavata.model.workspace.experiment.TaskDetails;
-import org.apache.airavata.model.workspace.experiment.WorkflowNodeDetails;
+import org.apache.airavata.model.error.AiravataClientConnectException;
+import org.apache.airavata.model.util.ExperimentModelUtil;
+import org.apache.airavata.model.workspace.experiment.*;
 import org.apache.airavata.persistance.registry.jpa.impl.LoggingRegistryImpl;
 import org.apache.airavata.persistance.registry.jpa.impl.RegistryFactory;
+import org.apache.airavata.persistance.registry.jpa.model.WorkflowNodeDetail;
 import org.apache.airavata.registry.api.AiravataRegistry2;
 import org.apache.airavata.registry.api.AiravataRegistryFactory;
 import org.apache.airavata.registry.api.AiravataUser;
@@ -66,8 +69,10 @@ import org.apache.airavata.registry.api.exception.RegAccessorInstantiateExceptio
 import org.apache.airavata.registry.api.exception.RegAccessorInvalidException;
 import org.apache.airavata.registry.api.exception.RegAccessorUndefinedException;
 import org.apache.airavata.registry.api.exception.RegException;
+import org.apache.airavata.registry.cpi.ChildDataType;
 import org.apache.airavata.registry.cpi.Registry;
 import org.apache.airavata.registry.cpi.RegistryException;
+import org.apache.airavata.registry.cpi.RegistryModelType;
 import org.apache.airavata.schemas.gfac.*;
 import org.apache.zookeeper.ZooKeeper;
 import org.junit.Assert;
@@ -75,7 +80,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.apache.airavata.api.Airavata;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -83,22 +88,26 @@ import java.net.URL;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class JCloudsProviderTestWithStringType{
 
     private DBUtil dbUtil;
     private JobExecutionContext jobExecutionContext;
+    private Registry registry;
+
+    private static final String DEFAULT_USER = "default.registry.user";
+    private static final String DEFAULT_USER_PASSWORD = "default.registry.password";
+    private static final String DEFAULT_GATEWAY = "default.registry.gateway";
+
     /* Username used to log into your ec2 instance eg.ec2-user */
-    private String userName = "ec2-user";
+    private String userName = "";
 
     /* Secret key used to connect to the image */
     private String secretKey = "";
 
     /* Access key used to connect to the image */
-    private String accessKey = "";
+    private String accessKey = "AKIAJBCWH3BBTIYXNKXA";
 
     /* Instance id of the running instance of your image */
     private String instanceId = "i-3040241c";
@@ -108,12 +117,12 @@ public class JCloudsProviderTestWithStringType{
     private String gatewayId="gatewayABC";
     private String tockenId;
     private String user="user123";
+    final String experimentId="StringMergeExperiment_a60741b5-b77f-4958-b780-3c5d972a220b";
 
-    private static final String inputFile1 ="palaapayayayayayayaya";
-    private static final String inputFile2="atetaeaateataeataeata";
+    private static final String inputFile1 ="palaapayayayayayayayayayayayayahukahuakahauakahauakahauakahauakahauakahauakahauakahauakahauakajhauakahjau";
+    private static final String inputFile2="atetaeaateataeataeataeataeataeataeataeapskakakapakapakapakapakapakapakapakapakapakapakapakapakapakapakapakapakaka";
 
     public void setUpDatabase() throws Exception {
-
         System.setProperty("credential.store.keystore.url", "/usr/local/AiravataNewProject/airavata/modules/configuration/server/src/main/resources/airavata.jks");
         System.setProperty("credential.store.keystore.alias", "airavata");
         System.setProperty("credential.store.keystore.password", "airavata");
@@ -121,6 +130,10 @@ public class JCloudsProviderTestWithStringType{
         System.setProperty("credential.store.jdbc.user","admin");
         System.setProperty("credential.store.jdbc.password","admin");
         System.setProperty("credential.store.jdbc.driver","org.apache.derby.jdbc.ClientDriver");
+        System.setProperty("activity.listeners","org.apache.airavata.gfac.core.monitor.AiravataJobStatusUpdator,org.apache.airavata.gfac.core.monitor.AiravataTaskStatusUpdator," +
+                "org.apache.airavata.gfac.core.monitor.AiravataWorkflowNodeStatusUpdator,org.apache.airavata.gfac.core." +
+                "monitor.GfacInternalStatusUpdator");
+        System.setProperty("jpa.cache.size","500");
 
         dbUtil=new DBUtil("jdbc:derby://localhost:1527/credential_store;create=true;user=admin;password=admin",
                 "admin", "admin", "org.apache.derby.jdbc.ClientDriver");
@@ -154,7 +167,6 @@ public class JCloudsProviderTestWithStringType{
         byte[] bytes=new byte[(int)fis.getChannel().size()];
         fis.read(bytes);
         credential.setPublickey(bytes);
-
         Ec2CredentialWriter writer=new Ec2CredentialWriter(dbUtil);
         try {
             writer.writeCredentials(credential);
@@ -169,18 +181,18 @@ public class JCloudsProviderTestWithStringType{
 
        URL resource = JCloudsProviderTestWithStringType.class.getClassLoader().getResource(org.apache.airavata.common.utils.Constants.GFAC_CONFIG_XML);
        assert resource != null;
-       System.out.println(resource.getFile());
        GFacConfiguration gFacConfiguration = GFacConfiguration.create(new File(resource.getPath()), null, null);
        gFacConfiguration.setOutHandlers("org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider",null);
        gFacConfiguration.setInHandlers("org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider",null);
 
        // host
        HostDescription host = new HostDescription(Ec2HostType.type);
-       host.getType().setHostName(hostName);
+       host.getType().setHostName(instanceId);
        host.getType().setHostAddress(hostAddress);
 
        //Node
        WorkflowNodeDetails nodeDetail=new WorkflowNodeDetails();
+       nodeDetail.setNodeInstanceId("IDontNeedaNode_c2786621-9896-46b5-9a35-313275ab115b");
 
        // app
        ApplicationDescription ec2Desc = new ApplicationDescription(Ec2ApplicationDeploymentType.type);
@@ -194,7 +206,7 @@ public class JCloudsProviderTestWithStringType{
 
        // service
        ServiceDescription serv = new ServiceDescription();
-       serv.getType().setName("fileMerge");
+       serv.getType().setName("StringMerge");
 
        //Job location
        String tempDir="/home/ec2-user";
@@ -241,7 +253,7 @@ public class JCloudsProviderTestWithStringType{
        applicationContext.setHostDescription(host);
 
        JCloudsSecurityContext securityContext=getSecurityContext();
-       jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
+       //jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
 
        MessageContext inMessage=new MessageContext();
        ActualParameter inputParam1=new ActualParameter();
@@ -260,24 +272,38 @@ public class JCloudsProviderTestWithStringType{
        jobExecutionContext.setInMessageContext(inMessage);
        jobExecutionContext.setOutMessageContext(outMessage);
 
-       jobExecutionContext.setExperimentID("AiravataExperiment");
-       jobExecutionContext.setExperiment(new Experiment("test123","project1","admin","testExp"));
-       jobExecutionContext.setTaskData(new TaskDetails(jobExecutionContext.getExperimentID()));
-       jobExecutionContext.setRegistry(new LoggingRegistryImpl());
-       jobExecutionContext.setGatewayID("Gateway123");
+       jobExecutionContext.setExperimentID(experimentId);
+       jobExecutionContext.setExperiment(new Experiment(experimentId, "project1_856a8faf-2326-4c78-a6f5-f61f275e4bca", "admin", "StringMergeExperiment"));
+       jobExecutionContext.setTaskData(new TaskDetails("IDontNeedaNode_1cb3555d-700d-44ef-a1d9-dda265c07b8d"));
+       jobExecutionContext.setGatewayID("php_reference_gateway");
+       jobExecutionContext.setCredentialStoreToken(tockenId);
    }
 
    @Test
    public void testJCloudsProvider() throws RegistryException {
-
-       Registry registry = RegistryFactory.getDefaultRegistry();
-       GFacImpl gFac= null;
+       BetterGfacImpl gFac= null;
        try {
-           gFac=new GFacImpl(registry, null,
+           String sysUser = ClientSettings.getSetting(DEFAULT_USER);
+           String sysUserPwd = ClientSettings.getSetting(DEFAULT_USER_PASSWORD);
+           String gateway = ClientSettings.getSetting(DEFAULT_GATEWAY);
+           registry = RegistryFactory.getRegistry(gateway, sysUser, sysUserPwd);
+           //createTaskAndLaunch();
+
+           /*gFac=new GFacImpl(registry, null,
               AiravataRegistryFactory.getRegistry(new Gateway("default"),
-                           new AiravataUser("admin")));
+                           new AiravataUser("admin")));*/
+           jobExecutionContext.setRegistry(registry);
            jobExecutionContext.setGfac(gFac);
-           gFac.submitJob(jobExecutionContext);
+           MonitorPublisher publisher = new MonitorPublisher(new EventBus());
+           BetterGfacImpl.setMonitorPublisher(publisher);
+
+           gFac = new BetterGfacImpl(registry, null,
+                   AiravataRegistryFactory.getRegistry(new Gateway(gateway),
+                           new AiravataUser(sysUser)),null,publisher);
+
+           gFac.submitJob("echoExperiment_361e786d-33ec-403a-88c7-d88a7f5b5655","IDontNeedaNode_5f5f4eea-0ef4-40c2-9780-650d496144aa","php_reference_gateway");
+           /*monitor();
+           gFac.submitJob(jobExecutionContext);*/
            while(true){
 
            }
@@ -294,6 +320,49 @@ public class JCloudsProviderTestWithStringType{
        CredentialReader reader=new CredentialReaderImpl(dbUtil);
        JCloudsSecurityContext securityContext=new JCloudsSecurityContext(userName,"aws-ec2",instanceId,reader,data);
        return securityContext;
+   }
+
+   public void createTaskAndLaunch() throws RegistryException {
+       Experiment experiment = (Experiment) registry.get(RegistryModelType.EXPERIMENT, experimentId);
+       WorkflowNodeDetails iDontNeedaNode = ExperimentModelUtil.createWorkflowNode("IDontNeedaNode", null);
+       String nodeID = (String) registry.add(ChildDataType.WORKFLOW_NODE_DETAIL, iDontNeedaNode, experimentId);
+       TaskDetails taskDetails = ExperimentModelUtil.cloneTaskFromExperiment(experiment);
+       taskDetails.setTaskID((String) registry.add(ChildDataType.TASK_DETAIL, taskDetails, nodeID));
+       jobExecutionContext.setTaskData(taskDetails);
+       WorkflowNodeDetails nodeDetails=new WorkflowNodeDetails();
+       jobExecutionContext.setWorkflowNodeDetails(nodeDetails);
+   }
+
+   public void monitor() throws AiravataClientConnectException {
+       final Airavata.Client airavata = AiravataClientFactory.createAiravataClient("localhost", 8930);
+       Thread monitor = (new Thread(){
+           public void run() {
+               Map<String, JobStatus> jobStatuses = null;
+               while (true) {
+                   try {
+                       jobStatuses = airavata.getJobStatuses(experimentId);
+                       Set<String> strings = jobStatuses.keySet();
+                       for (String key : strings) {
+                           JobStatus jobStatus = jobStatuses.get(key);
+                           if(jobStatus == null){
+                               return;
+                           }else {
+                               if (JobState.COMPLETE.equals(jobStatus.getJobState())) {
+                                   System.out.println("Job completed Job ID: " + jobStatus.getJobState().toString());
+                                   return;
+                               }else{
+                                   System.out.println("Job ID:" + key + jobStatuses.get(key).getJobState().toString());
+                               }
+                           }
+                       }
+                       Thread.sleep(20000);
+                   } catch (Exception e) {
+                       e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                   }
+               }
+           }
+       });
+       monitor.start();
    }
 
 

@@ -23,9 +23,18 @@ package org.apache.airavata.gfac.jclouds.utils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Module;
+import org.apache.airavata.common.exception.ApplicationSettingsException;
+import org.apache.airavata.common.utils.ClientSettings;
+import org.apache.airavata.common.utils.DBUtil;
+import org.apache.airavata.common.utils.ServerSettings;
+import org.apache.airavata.commons.gfac.type.HostDescription;
+import org.apache.airavata.credential.store.store.CredentialReader;
+import org.apache.airavata.credential.store.store.impl.CredentialReaderImpl;
 import org.apache.airavata.gfac.GFacException;
+import org.apache.airavata.gfac.RequestData;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
+import org.apache.airavata.schemas.gfac.Ec2HostType;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
@@ -50,6 +59,7 @@ import static org.jclouds.scriptbuilder.domain.Statements.exec;
 
 public class JCloudsUtils {
     private static final Logger log = LoggerFactory.getLogger(JCloudsUtils.class);
+
     private JCloudsSecurityContext securityContext;
     private String nodeId;
     private ComputeServiceContext context;
@@ -237,12 +247,43 @@ public class JCloudsUtils {
         }
     }
 
+    public JobExecutionContext addSecurityContext(JobExecutionContext jobExecutionContext){
+        HostDescription host=jobExecutionContext.getApplicationContext().getHostDescription();
+        String instanceId=host.getType().getHostName();
+        if(host.getType() instanceof Ec2HostType){
+            String credentialStoreToken = jobExecutionContext.getCredentialStoreToken(); // this is set by the framework
+            RequestData requestData = null;
+            try {
+                requestData = new RequestData(ClientSettings.getSetting("gateway_id"));
+                requestData.setTokenId(credentialStoreToken);
+                CredentialReader reader=new CredentialReaderImpl(DBUtil.getCredentialStoreDBUtil());
+                securityContext=new JCloudsSecurityContext("ec2-user","aws-ec2",instanceId,reader,requestData);
+
+            } catch (ApplicationSettingsException e) {
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+            jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
+            return jobExecutionContext;
+        }
+        return null;
+    }
+
     public LoginCredentials getCredentials() {
         return credentials;
     }
 
     public ComputeServiceContext getContext() {
         return context;
+    }
+
+    public JCloudsSecurityContext getSecurityContext() {
+        return securityContext;
     }
 }
 

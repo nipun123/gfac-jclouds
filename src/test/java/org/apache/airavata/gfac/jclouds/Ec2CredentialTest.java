@@ -21,6 +21,7 @@
 
 package org.apache.airavata.gfac.jclouds;
 
+
 import org.apache.airavata.common.exception.ApplicationSettingsException;
 import org.apache.airavata.common.utils.DBUtil;
 import org.apache.airavata.credential.store.credential.Credential;
@@ -37,10 +38,10 @@ import javax.validation.constraints.AssertFalse;
 import java.sql.SQLException;
 import java.util.UUID;
 
-public class Ec2CredentialTest {
+public class Ec2_credentialTest {
     DBUtil dbUtil;
-    String accessKey="";
-    String secretKey="";
+    String accessKey="gsvycnvnvnmmhp9vp395u85M65y65kjVHUihyhrqu";
+    String secretKey="HVGCU9UJD8RYgtvmhfhv5vy575h3i4utbcgRH92{rgtbnth-DBUtil0_dbUtilj4GTYHIjrtri";
 
     @Before
     public void setupCredentialStore() throws IllegalAccessException, ClassNotFoundException, InstantiationException, SQLException {
@@ -110,3 +111,4 @@ public class Ec2CredentialTest {
         }
     }
 }
+

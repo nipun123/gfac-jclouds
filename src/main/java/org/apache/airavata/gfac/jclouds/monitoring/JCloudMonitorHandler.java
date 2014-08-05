@@ -19,7 +19,7 @@
  *
 */
 
-package org.apache.airavata.gfac.jclouds.monitoring;
+package org.apache.airavata.gfac.jclouds.Monitoring;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.airavata.common.exception.ApplicationSettingsException;
@@ -51,7 +51,6 @@ public class JCloudMonitorHandler extends ThreadedHandler{
             monitor=new Monitor(GFacImpl.getMonitorPublisher(),pushQueue,finishQueue);
         }catch (Exception e){
             e.printStackTrace();
-
         }
     }
 
@@ -89,3 +88,4 @@ public class JCloudMonitorHandler extends ThreadedHandler{
     }
 
 }
+
