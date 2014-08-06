@@ -46,8 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 public class JCloudsOutHandler extends AbstractHandler {
     private static final Logger log = LoggerFactory.getLogger(JCloudsOutHandler.class);
@@ -67,18 +66,17 @@ public class JCloudsOutHandler extends AbstractHandler {
         }catch (GFacException e){
             throw new GFacHandlerException("Error while reading security context or initialising ec2 environment");
         }
-
+        credentials=jCloudsUtils.getCredentials();
         fileTransfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),jCloudsUtils.getCredentials());
 
         if(jobExecutionContext.getApplicationContext().getHostDescription().getType() instanceof Ec2HostType){
             TaskDetails taskDetails=null;
             try{
-                taskDetails=(TaskDetails)jobExecutionContext.getRegistry().get(RegistryModelType.TASK_DETAIL,jobExecutionContext.getTaskData().getTaskID());
+               taskDetails=(TaskDetails)jobExecutionContext.getRegistry().get(RegistryModelType.TASK_DETAIL,jobExecutionContext.getTaskData().getTaskID());
             }catch (RegistryException e){
                 log.error("Error retrieving job details from Registry");
                 throw new GFacHandlerException("Error retrieving job details from Registry", e);
             }
-
         }
 
         super.invoke(jobExecutionContext);
@@ -111,16 +109,21 @@ public class JCloudsOutHandler extends AbstractHandler {
             detail.setTransferDescription("STDERR:" + stderrStr);
             registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
 
-
+            List<DataObjectType> outputArray = new ArrayList<DataObjectType>();
             MessageContext outMessage=jobExecutionContext.getOutMessageContext();
             Set<String> outputs=outMessage.getParameters().keySet();
+            List<String> outputFileList=getOutPutFileList(jobExecutionContext);
+            int fileCount=0;
             for(String output:outputs){
                 ActualParameter actualParameter=(ActualParameter)outMessage.getParameters().get(output);
-                String paramValue= MappingFactory.toString(actualParameter);
                 if ("URI".equals(actualParameter.getType().getType().toString())){
-                   stageOutputFiles(jobExecutionContext,paramValue);
+                   if(outputFileList.size()>fileCount){
+                       String localFileName=outputdatadir+File.separator+outputFileList.get(fileCount);
+                       stageOutputFiles(jobExecutionContext,localFileName);
+                       fileCount++;
+                   }
                 }else if ("S3".equals(actualParameter.getType().getType().toString())){
-                    stages3Files(jobExecutionContext,paramValue);
+                    stages3Files(jobExecutionContext,outputFileList.get(fileCount));
                 }
                 status.setTransferState(TransferState.DOWNLOAD);
                 detail.setTransferStatus(status);
@@ -139,41 +142,40 @@ public class JCloudsOutHandler extends AbstractHandler {
             }
             throw new GFacHandlerException("Error in retrieving results", e);
         } catch (FileTransferException e) {
-            log.error("Error occured while file transfering "+e.getLocalizedMessage());
+            log.error("Error occurred while file transferring "+e.getLocalizedMessage());
         } catch (FileNotFoundException e) {
             log.error("Could not found stdout or stderr file "+e.getLocalizedMessage());
         } catch (IOException e) {
-            log.error("Error occured "+e.getLocalizedMessage());
+            log.error("Error occurred "+e.getLocalizedMessage());
         } catch (RegistryException e) {
-            log.error("Error occured while persisting data "+e.getLocalizedMessage());
+            log.error("Error occurred while persisting data "+e.getLocalizedMessage());
         }
         jCloudsUtils.stopNode();
     }
 
     public String stageOutputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws GFacHandlerException {
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-        int i=paramValue.lastIndexOf("/");
+        int i=paramValue.lastIndexOf(File.separator);
         String fileName=paramValue.substring(i+1);
         String targetFile=null;
-        ExecResponse response=jCloudsUtils.runScriptOnNode(jCloudsUtils.getCredentials(),"ls /home/ec2-user/output/ -l",true);
         try{
-            targetFile=app.getOutputDataDirectory()+"/"+fileName;
+            targetFile=app.getOutputDataDirectory()+File.separator+fileName;
             fileTransfer.downloadFilesFromEc2(paramValue,targetFile);
         }catch (FileTransferException e){
             log.error("Error while downloading file "+paramValue+" :"+e.toString());
-            throw new GFacHandlerException("Error occured while while doenloading file "+e.getLocalizedMessage());
+            throw new GFacHandlerException("Error occurred while while downloading file "+e.getLocalizedMessage());
         }
         return targetFile;
     }
 
     public void stages3Files(JobExecutionContext jobExecutionContext,String paramValue){
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-        int i=paramValue.lastIndexOf("/");
+        int i=paramValue.lastIndexOf(File.separator);
         String fileName=paramValue.substring(i+1);
         String targetFile=null;
 
         try{
-            targetFile=app.getOutputDataDirectory()+"/"+fileName;
+            targetFile=app.getOutputDataDirectory()+File.separator+fileName;
             if (!jCloudsUtils.isS3CmdInstall(credentials)){
                 jCloudsUtils.installS3CmdOnNode(securityContext,credentials);
             }
@@ -186,9 +188,26 @@ public class JCloudsOutHandler extends AbstractHandler {
               log.info("fail to put the file "+targetFile+" to s3");
             }
         }catch (Exception e){
-            log.error("Error while puting file to s3");
+            log.error("Error while putting file to s3");
         }
 
+    }
+
+    public List<String> getOutPutFileList(JobExecutionContext jobExecutionContext){
+        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
+        List<String> outputFileList=new ArrayList<String>();
+        String outputDirectoryName=null;
+        ExecResponse execResponse=null;
+        try{
+            outputDirectoryName=app.getOutputDataDirectory();
+            String command="ls "+outputDirectoryName;
+            execResponse=jCloudsUtils.runScriptOnNode(credentials,command,false);
+            String output=execResponse.getOutput();
+            outputFileList= Arrays.asList(output.split("\r\n"));
+        }catch (Exception e){
+            log.error("Error occurred while getting output file list");
+        }
+        return outputFileList;
     }
 
     @Override
