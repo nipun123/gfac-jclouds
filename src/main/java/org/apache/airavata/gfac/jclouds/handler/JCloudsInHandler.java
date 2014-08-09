@@ -20,6 +20,7 @@
 */
 package org.apache.airavata.gfac.jclouds.handler;
 
+import org.airavata.appcatalog.cpi.AppCatalogException;
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.MappingFactory;
 import org.apache.airavata.gfac.GFacException;
@@ -54,7 +55,6 @@ public class JCloudsInHandler extends AbstractHandler{
     private JCloudsSecurityContext securityContext;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
-        log.info("Invoking Handler");
         jCloudsUtils=JCloudsUtils.getInstance();
         if (jobExecutionContext==null){
             throw new GFacHandlerException("JobExecutionContext is null");
@@ -65,20 +65,21 @@ public class JCloudsInHandler extends AbstractHandler{
                 jCloudsUtils.addSecurityContext(jobExecutionContext);
                 securityContext=jCloudsUtils.getSecurityContext();
             }else{
-                log.info("successfully retrived security context");
+                log.info("successfully retrieved security context");
             }
+            securityContext.getCredentialsFromStore();
         } catch (GFacException e) {
-           log.error("Error occur in retriveing the security context");
+           log.error("Error occur in retrieving the security context");
+        } catch (AppCatalogException e) {
+           log.error("Error occur in retrieving the job submission details from app catalog");
         }
-
-        securityContext.getCredentialsFromStore();
 
         try {
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
+            credentials=jCloudsUtils.getCredentials();
         }catch (GFacException e){
             throw new GFacHandlerException("fail to initialize ec2 environment");
         }
-        credentials=jCloudsUtils.getCredentials();
 
         transfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),credentials);
         log.info("Setup Job directories");
@@ -137,11 +138,11 @@ public class JCloudsInHandler extends AbstractHandler{
 
     private String stageInputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws GFacHandlerException{
        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-       int i=paramValue.lastIndexOf("/");
+       int i=paramValue.lastIndexOf(File.separator);
        String fileName=paramValue.substring(i+1);
        String targetFile=null;
        try{
-            targetFile=app.getInputDataDirectory()+"/"+fileName;
+            targetFile=app.getInputDataDirectory()+File.separator+fileName;
             transfer.uploadFileToEc2(targetFile,paramValue);
        }catch (FileTransferException e){
             log.error("Error while uploading file "+paramValue+" :"+e.toString());
@@ -152,7 +153,7 @@ public class JCloudsInHandler extends AbstractHandler{
 
     private String stageS3Files(JobExecutionContext jobExecutionContext,String paramValue){
        ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-       int i=paramValue.lastIndexOf("/");
+       int i=paramValue.lastIndexOf(File.separator);
        String fileName=paramValue.substring(i+1);
        String targetFile=null;
        try {
@@ -169,15 +170,22 @@ public class JCloudsInHandler extends AbstractHandler{
               log.info("fail to get file "+targetFile+" from s3");
             }
        }catch (Exception e){
-          log.error("Error while geting file from s3 "+e.toString());
+          log.error("Error while getting file from s3 "+e.toString());
        }
        return targetFile;
     }
 
     private void makeDirectory(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
-        String inputDataDirectory=app.getInputDataDirectory();
-        String outputDataDirectory=app.getOutputDataDirectory();
+        String workingDirectory=app.getScratchWorkingDirectory();
+        String inputDataDirectory=workingDirectory+"/input";
+        String outputDataDirectory=workingDirectory+"/output";
+        String stdOutDirectory=workingDirectory+"/stdout";
+        String stdErrDirectory=workingDirectory+"/stderr";
+        app.setInputDataDirectory(inputDataDirectory);
+        app.setOutputDataDirectory(outputDataDirectory);
+        app.setStandardError(stdErrDirectory);
+        app.setStandardOutput(stdOutDirectory);
         String createDirectories=new StringBuilder().append("mkdir -m 777 "+inputDataDirectory+"\n")
                                                     .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
         ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);

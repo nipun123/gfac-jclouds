@@ -20,6 +20,7 @@
 */
 package org.apache.airavata.gfac.jclouds.handler;
 
+import org.airavata.appcatalog.cpi.AppCatalogException;
 import org.apache.airavata.commons.gfac.type.ActualParameter;
 import org.apache.airavata.commons.gfac.type.MappingFactory;
 import org.apache.airavata.gfac.GFacException;
@@ -28,6 +29,7 @@ import org.apache.airavata.gfac.core.context.MessageContext;
 import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
+import org.apache.airavata.gfac.core.utils.OutputUtils;
 import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
@@ -65,6 +67,8 @@ public class JCloudsOutHandler extends AbstractHandler {
             jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
         }catch (GFacException e){
             throw new GFacHandlerException("Error while reading security context or initialising ec2 environment");
+        } catch (AppCatalogException e) {
+            throw new GFacHandlerException("Error while adding security context");
         }
         credentials=jCloudsUtils.getCredentials();
         fileTransfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),jCloudsUtils.getCredentials());
@@ -86,11 +90,11 @@ public class JCloudsOutHandler extends AbstractHandler {
 
         String localStdOutFile;
         String localStdErrFile;
-        String outputdatadir=File.separator+"tmp"+File.separator+jobExecutionContext.getExperimentID()+"-"+jobExecutionContext.getTaskData().getTaskID();
-        (new File(outputdatadir)).mkdir();
+        String outputDataDir=File.separator+"tmp"+File.separator+jobExecutionContext.getExperimentID()+"-"+jobExecutionContext.getTaskData().getTaskID();
+        (new File(outputDataDir)).mkdir();
 
-        localStdOutFile=outputdatadir+File.separator+"stdout";
-        localStdErrFile=outputdatadir+File.separator+"stderr";
+        localStdOutFile=outputDataDir+File.separator+"stdout";
+        localStdErrFile=outputDataDir+File.separator+"stderr";
 
         try{
             fileTransfer.downloadFilesFromEc2(localStdOutFile,app.getStandardOutput());
@@ -118,18 +122,33 @@ public class JCloudsOutHandler extends AbstractHandler {
                 ActualParameter actualParameter=(ActualParameter)outMessage.getParameters().get(output);
                 if ("URI".equals(actualParameter.getType().getType().toString())){
                    if(outputFileList.size()>fileCount){
-                       String localFileName=outputdatadir+File.separator+outputFileList.get(fileCount);
-                       stageOutputFiles(jobExecutionContext,localFileName);
-                       fileCount++;
+                      String localFileName=outputDataDir+File.separator+outputFileList.get(fileCount);
+                      stageOutputFiles(jobExecutionContext,localFileName);
+                      fileCount++;
+
+                      jobExecutionContext.addOutputFile(localFileName);
+                      DataObjectType dataObjectType = new DataObjectType();
+                      dataObjectType.setValue(localFileName);
+                      dataObjectType.setKey(output);
+                      dataObjectType.setType(DataType.URI);
+                      outputArray.add(dataObjectType);
                    }
                 }else if ("S3".equals(actualParameter.getType().getType().toString())){
                     stages3Files(jobExecutionContext,outputFileList.get(fileCount));
                 }
-                status.setTransferState(TransferState.DOWNLOAD);
-                detail.setTransferStatus(status);
-                detail.setTransferDescription("file down complete");
-                registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+                else{
+                     DataObjectType out = new DataObjectType();
+                     out.setKey(output);
+                     out.setType(DataType.STRING);
+                     out.setValue(stdoutStr);
+                     outputArray.add(out);
+                }
             }
+            status.setTransferState(TransferState.DOWNLOAD);
+            detail.setTransferStatus(status);
+            detail.setTransferDescription(outputDataDir);
+            registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
+            registry.add(ChildDataType.EXPERIMENT_OUTPUT, outputArray, jobExecutionContext.getExperimentID());
         }catch (GFacHandlerException e){
             try {
                 status.setTransferState(TransferState.FAILED);
@@ -149,6 +168,8 @@ public class JCloudsOutHandler extends AbstractHandler {
             log.error("Error occurred "+e.getLocalizedMessage());
         } catch (RegistryException e) {
             log.error("Error occurred while persisting data "+e.getLocalizedMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         jCloudsUtils.stopNode();
     }

@@ -23,6 +23,9 @@ package org.apache.airavata.gfac.jclouds.utils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Module;
+import org.airavata.appcatalog.cpi.AppCatalog;
+import org.airavata.appcatalog.cpi.AppCatalogException;
+import org.apache.aiaravata.application.catalog.data.impl.AppCatalogFactory;
 import org.apache.airavata.common.exception.ApplicationSettingsException;
 import org.apache.airavata.common.utils.ClientSettings;
 import org.apache.airavata.common.utils.DBUtil;
@@ -34,6 +37,12 @@ import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.RequestData;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
 import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
+import org.apache.airavata.model.appcatalog.appdeployment.ApplicationDeploymentDescription;
+import org.apache.airavata.model.appcatalog.computeresource.CloudJobSubmission;
+import org.apache.airavata.model.appcatalog.computeresource.ComputeResourceDescription;
+import org.apache.airavata.model.appcatalog.computeresource.JobSubmissionInterface;
+import org.apache.airavata.model.appcatalog.computeresource.ProviderName;
+import org.apache.airavata.model.workspace.experiment.TaskDetails;
 import org.apache.airavata.schemas.gfac.Ec2HostType;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
@@ -247,17 +256,31 @@ public class JCloudsUtils {
         }
     }
 
-    public JobExecutionContext addSecurityContext(JobExecutionContext jobExecutionContext){
-        HostDescription host=jobExecutionContext.getApplicationContext().getHostDescription();
-        String instanceId=host.getType().getHostName();
-        if(host.getType() instanceof Ec2HostType){
+    public JobExecutionContext addSecurityContext(JobExecutionContext jobExecutionContext) throws AppCatalogException {
+        AppCatalog appCatalog = AppCatalogFactory.getAppCatalog();
+
+        TaskDetails taskData=jobExecutionContext.getTaskData();
+        String applicationDeploymentId = taskData.getApplicationDeploymentId();
+        ApplicationDeploymentDescription applicationDeployment = appCatalog.
+                getApplicationDeployment().getApplicationDeployement(applicationDeploymentId);
+        ComputeResourceDescription computeResource = appCatalog.getComputeResource().
+                getComputeResource(applicationDeployment.getComputeHostId());
+
+        JobSubmissionInterface jobSubmissionInterface=computeResource.getJobSubmissionInterfaces().get(0);
+        CloudJobSubmission cloudJobSubmission=appCatalog.getComputeResource().getCloudJobSubmission(jobSubmissionInterface.getJobSubmissionInterfaceId());
+
             String credentialStoreToken = jobExecutionContext.getCredentialStoreToken(); // this is set by the framework
             RequestData requestData = null;
+
+            String providerName=null;
+            if(cloudJobSubmission.getProviderName()== ProviderName.EC2){
+               providerName="aws-ec2";
+            }
             try {
-                requestData = new RequestData(ClientSettings.getSetting("gateway_id"));
+                requestData = new RequestData("php_reference_gateway");
                 requestData.setTokenId(credentialStoreToken);
                 CredentialReader reader=new CredentialReaderImpl(DBUtil.getCredentialStoreDBUtil());
-                securityContext=new JCloudsSecurityContext("ec2-user","aws-ec2",instanceId,reader,requestData);
+                securityContext=new JCloudsSecurityContext(cloudJobSubmission.getUserAccountName(),providerName,cloudJobSubmission.getNodeId(),reader,requestData);
 
             } catch (ApplicationSettingsException e) {
                 e.printStackTrace();
@@ -270,8 +293,6 @@ public class JCloudsUtils {
             }
             jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
             return jobExecutionContext;
-        }
-        return null;
     }
 
     public LoginCredentials getCredentials() {

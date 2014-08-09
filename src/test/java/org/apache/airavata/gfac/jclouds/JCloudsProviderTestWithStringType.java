@@ -101,26 +101,26 @@ public class JCloudsProviderTestWithStringType{
     private static final String DEFAULT_GATEWAY = "default.registry.gateway";
 
     /* Username used to log into your ec2 instance eg.ec2-user */
-    private String userName = "";
+    private String userName = "ec2-user";
 
     /* Secret key used to connect to the image */
     private String secretKey = "";
 
     /* Access key used to connect to the image */
-    private String accessKey = "AKIAJBCWH3BBTIYXNKXA";
+    private String accessKey = "";
 
     /* Instance id of the running instance of your image */
     private String instanceId = "i-3040241c";
 
     private String hostName="ec2";
     private String hostAddress="";
-    private String gatewayId="gatewayABC";
+    private String gatewayId="php_reference_gateway";
     private String tockenId;
     private String user="user123";
-    final String experimentId="StringMergeExperiment_a60741b5-b77f-4958-b780-3c5d972a220b";
+    final String experimentId="StringMergeExperiment_477c1d67-287d-4c99-9f87-5e0313e1e452";
 
-    private static final String inputFile1 ="palaapayayayayayayayayayayayayahukahuakahauakahauakahauakahauakahauakahauakahauakahauakahauakajhauakahjau";
-    private static final String inputFile2="atetaeaateataeataeataeataeataeataeataeapskakakapakapakapakapakapakapakapakapakapakapakapakapakapakapakapakapakaka";
+    private static final String inputFile1 ="yarayarayargahataraobamaghebnammaobenamapiyamukoheharikahauakahauakahauakahauakahauakahauakajhauakahjau";
+    private static final String inputFile2="oyanisahadalamageasuthridunatarahawelaharagiyadapaluweunnewedanadanune";
 
     public void setUpDatabase() throws Exception {
         System.setProperty("credential.store.keystore.url", "/usr/local/AiravataNewProject/airavata/modules/configuration/server/src/main/resources/airavata.jks");
@@ -192,7 +192,7 @@ public class JCloudsProviderTestWithStringType{
 
        //Node
        WorkflowNodeDetails nodeDetail=new WorkflowNodeDetails();
-       nodeDetail.setNodeInstanceId("IDontNeedaNode_c2786621-9896-46b5-9a35-313275ab115b");
+       nodeDetail.setNodeInstanceId("IDontNeedaNode_063ba363-d840-4b4b-901a-6ef366e8d4d1");
 
        // app
        ApplicationDescription ec2Desc = new ApplicationDescription(Ec2ApplicationDeploymentType.type);
@@ -202,7 +202,6 @@ public class JCloudsProviderTestWithStringType{
        app.setApplicationName(name);
        app.setExecutable("/home/ec2-user/mergeString.sh");
        app.setExecutableType("sh");
-       app.setJobType(JobTypeType.EC_2);
 
        // service
        ServiceDescription serv = new ServiceDescription();
@@ -210,7 +209,7 @@ public class JCloudsProviderTestWithStringType{
 
        //Job location
        String tempDir="/home/ec2-user";
-       app.setStaticWorkingDirectory(tempDir);
+       app.setScratchWorkingDirectory(tempDir);
        app.setInputDataDirectory(tempDir+"/input");
        app.setOutputDataDirectory(tempDir +"/output");
        app.setStandardOutput(tempDir +"/stdout");
@@ -253,7 +252,7 @@ public class JCloudsProviderTestWithStringType{
        applicationContext.setHostDescription(host);
 
        JCloudsSecurityContext securityContext=getSecurityContext();
-       //jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
+       jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
 
        MessageContext inMessage=new MessageContext();
        ActualParameter inputParam1=new ActualParameter();
@@ -273,37 +272,37 @@ public class JCloudsProviderTestWithStringType{
        jobExecutionContext.setOutMessageContext(outMessage);
 
        jobExecutionContext.setExperimentID(experimentId);
-       jobExecutionContext.setExperiment(new Experiment(experimentId, "project1_856a8faf-2326-4c78-a6f5-f61f275e4bca", "admin", "StringMergeExperiment"));
-       jobExecutionContext.setTaskData(new TaskDetails("IDontNeedaNode_1cb3555d-700d-44ef-a1d9-dda265c07b8d"));
+       jobExecutionContext.setExperiment(new Experiment(experimentId, "project1_b3f3548c-b7ad-489b-a455-dbd4b5bba78f", "admin", "StringMergeExperiment"));
+       jobExecutionContext.setTaskData(new TaskDetails("IDontNeedaNode_b338a28c-09d0-43f8-8559-255a95ec6310"));
        jobExecutionContext.setGatewayID("php_reference_gateway");
        jobExecutionContext.setCredentialStoreToken(tockenId);
    }
 
    @Test
    public void testJCloudsProvider() throws RegistryException {
-       BetterGfacImpl gFac= null;
+       GFacImpl gFac= null;
        try {
            String sysUser = ClientSettings.getSetting(DEFAULT_USER);
            String sysUserPwd = ClientSettings.getSetting(DEFAULT_USER_PASSWORD);
            String gateway = ClientSettings.getSetting(DEFAULT_GATEWAY);
            registry = RegistryFactory.getRegistry(gateway, sysUser, sysUserPwd);
-           //createTaskAndLaunch();
 
-           /*gFac=new GFacImpl(registry, null,
+           gFac=new GFacImpl(registry, null,
               AiravataRegistryFactory.getRegistry(new Gateway("default"),
-                           new AiravataUser("admin")));*/
+                           new AiravataUser("admin")));
            jobExecutionContext.setRegistry(registry);
            jobExecutionContext.setGfac(gFac);
-           MonitorPublisher publisher = new MonitorPublisher(new EventBus());
+
+           /*MonitorPublisher publisher = new MonitorPublisher(new EventBus());
            BetterGfacImpl.setMonitorPublisher(publisher);
 
            gFac = new BetterGfacImpl(registry, null,
                    AiravataRegistryFactory.getRegistry(new Gateway(gateway),
-                           new AiravataUser(sysUser)),null,publisher);
+                           new AiravataUser(sysUser)),null,publisher);*/
 
-           gFac.submitJob("echoExperiment_361e786d-33ec-403a-88c7-d88a7f5b5655","IDontNeedaNode_5f5f4eea-0ef4-40c2-9780-650d496144aa","php_reference_gateway");
-           /*monitor();
-           gFac.submitJob(jobExecutionContext);*/
+           //gFac.submitJob(experimentId,"IDontNeedaNode_5af93bc4-5ebd-40ba-8ec1-f5f96c05bae5","php_reference_gateway");
+           monitor();
+           gFac.submitJob(jobExecutionContext);
            while(true){
 
            }
@@ -328,9 +327,6 @@ public class JCloudsProviderTestWithStringType{
        String nodeID = (String) registry.add(ChildDataType.WORKFLOW_NODE_DETAIL, iDontNeedaNode, experimentId);
        TaskDetails taskDetails = ExperimentModelUtil.cloneTaskFromExperiment(experiment);
        taskDetails.setTaskID((String) registry.add(ChildDataType.TASK_DETAIL, taskDetails, nodeID));
-       jobExecutionContext.setTaskData(taskDetails);
-       WorkflowNodeDetails nodeDetails=new WorkflowNodeDetails();
-       jobExecutionContext.setWorkflowNodeDetails(nodeDetails);
    }
 
    public void monitor() throws AiravataClientConnectException {
