@@ -224,7 +224,9 @@ public class JCloudsOutHandler extends AbstractHandler {
             String command="ls "+outputDirectoryName;
             execResponse=jCloudsUtils.runScriptOnNode(credentials,command,false);
             String output=execResponse.getOutput();
-            outputFileList= Arrays.asList(output.split("\r\n"));
+            if(!output.equals("")){
+              outputFileList= Arrays.asList(output.split("\r\n"));
+            }
         }catch (Exception e){
             log.error("Error occurred while getting output file list");
         }

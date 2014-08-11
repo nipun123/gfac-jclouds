@@ -178,8 +178,8 @@ public class JCloudsInHandler extends AbstractHandler{
     private void makeDirectory(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
         String workingDirectory=app.getScratchWorkingDirectory();
-        String inputDataDirectory=workingDirectory+"/input";
-        String outputDataDirectory=workingDirectory+"/output";
+        String inputDataDirectory=workingDirectory+"/inputData";
+        String outputDataDirectory=workingDirectory+"/outputData";
         String stdOutDirectory=workingDirectory+"/stdout";
         String stdErrDirectory=workingDirectory+"/stderr";
         app.setInputDataDirectory(inputDataDirectory);

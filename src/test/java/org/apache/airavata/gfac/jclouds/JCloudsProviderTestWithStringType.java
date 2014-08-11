@@ -23,6 +23,7 @@ package org.apache.airavata.gfac.jclouds;
 
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import org.apache.aiaravata.application.catalog.data.model.Workflow;
 import org.apache.airavata.api.client.AiravataClientFactory;
 import org.apache.airavata.client.AiravataAPIFactory;
 import org.apache.airavata.client.api.AiravataAPI;
@@ -41,6 +42,7 @@ import org.apache.airavata.credential.store.store.CredentialStoreException;
 import org.apache.airavata.credential.store.store.impl.CredentialReaderImpl;
 import org.apache.airavata.credential.store.store.impl.Ec2CredentialWriter;
 import org.apache.airavata.gfac.GFacConfiguration;
+import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.RequestData;
 import org.apache.airavata.gfac.core.context.ApplicationContext;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
@@ -80,7 +82,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.airavata.api.Airavata;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -91,93 +92,31 @@ import java.sql.Timestamp;
 import java.util.*;
 
 public class JCloudsProviderTestWithStringType{
-
-    private DBUtil dbUtil;
     private JobExecutionContext jobExecutionContext;
-    private Registry registry;
-
-    private static final String DEFAULT_USER = "default.registry.user";
-    private static final String DEFAULT_USER_PASSWORD = "default.registry.password";
-    private static final String DEFAULT_GATEWAY = "default.registry.gateway";
 
     /* Username used to log into your ec2 instance eg.ec2-user */
     private String userName = "ec2-user";
 
-    /* Secret key used to connect to the image */
-    private String secretKey = "";
-
-    /* Access key used to connect to the image */
-    private String accessKey = "";
-
     /* Instance id of the running instance of your image */
     private String instanceId = "i-3040241c";
 
-    private String hostName="ec2";
-    private String hostAddress="";
     private String gatewayId="php_reference_gateway";
-    private String tockenId;
+    private String tockenId="5dcba6fe-8e0b-4df6-bfc1-5f7dc5edd8fc";
     private String user="user123";
     final String experimentId="StringMergeExperiment_477c1d67-287d-4c99-9f87-5e0313e1e452";
 
     private static final String inputFile1 ="yarayarayargahataraobamaghebnammaobenamapiyamukoheharikahauakahauakahauakahauakahauakahauakajhauakahjau";
     private static final String inputFile2="oyanisahadalamageasuthridunatarahawelaharagiyadapaluweunnewedanadanune";
 
-    public void setUpDatabase() throws Exception {
-        System.setProperty("credential.store.keystore.url", "/usr/local/AiravataNewProject/airavata/modules/configuration/server/src/main/resources/airavata.jks");
-        System.setProperty("credential.store.keystore.alias", "airavata");
-        System.setProperty("credential.store.keystore.password", "airavata");
-        System.setProperty("credential.store.jdbc.url","jdbc:derby://localhost:1527/credential_store;create=true;user=admin;password=admin");
-        System.setProperty("credential.store.jdbc.user","admin");
-        System.setProperty("credential.store.jdbc.password","admin");
-        System.setProperty("credential.store.jdbc.driver","org.apache.derby.jdbc.ClientDriver");
-        System.setProperty("activity.listeners","org.apache.airavata.gfac.core.monitor.AiravataJobStatusUpdator,org.apache.airavata.gfac.core.monitor.AiravataTaskStatusUpdator," +
-                "org.apache.airavata.gfac.core.monitor.AiravataWorkflowNodeStatusUpdator,org.apache.airavata.gfac.core." +
-                "monitor.GfacInternalStatusUpdator");
-        System.setProperty("jpa.cache.size","500");
-
-        dbUtil=new DBUtil("jdbc:derby://localhost:1527/credential_store;create=true;user=admin;password=admin",
-                "admin", "admin", "org.apache.derby.jdbc.ClientDriver");
-
-
-        String createTable = "CREATE TABLE CREDENTIALS\n" + "(\n"
-                + "        GATEWAY_ID VARCHAR(256) NOT NULL,\n"
-                + "        TOKEN_ID VARCHAR(256) NOT NULL,\n"
-                + // Actual token used to identify the credential
-                "        CREDENTIAL BLOB NOT NULL,\n" + "PORTAL_USER_ID VARCHAR(256) NOT NULL,\n"
-                + "        TIME_PERSISTED TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n"
-                + "        PRIMARY KEY (GATEWAY_ID, TOKEN_ID)\n" + ")";
-
-        String dropTable = "drop table CREDENTIALS";
-
-        try {
-            dbUtil.executeSQL(dropTable);
-        } catch (Exception e) {
-        }
-
-        dbUtil.executeSQL(createTable);
-
-        Ec2Credential credential=new Ec2Credential(accessKey,secretKey,null,gatewayId,userName);
-        UUID uuid = UUID.randomUUID();
-        tockenId=uuid.toString();
-        System.out.println("TokenId: " + tockenId);
-        credential.setToken(uuid.toString());
-        credential.setPortalUserName("user123");
-
-        FileInputStream fis= new FileInputStream("/etc/ssh/.ssh/airavata.pem");
-        byte[] bytes=new byte[(int)fis.getChannel().size()];
-        fis.read(bytes);
-        credential.setPublickey(bytes);
-        Ec2CredentialWriter writer=new Ec2CredentialWriter(dbUtil);
-        try {
-            writer.writeCredentials(credential);
-        } catch (CredentialStoreException e) {
-            e.printStackTrace();
-        }
-    }
-
    @Before
    public void setup() throws Exception{
-       setUpDatabase();            // set up database
+       System.setProperty("credential.store.keystore.url", "/usr/local/project/airavata/modules/configuration/server/src/main/resources/airavata.jks");
+       System.setProperty("credential.store.keystore.alias", "airavata");
+       System.setProperty("credential.store.keystore.password", "airavata");
+       System.setProperty("credential.store.jdbc.url","jdbc:derby://localhost:1527/credential_store;create=true;user=admin;password=admin");
+       System.setProperty("credential.store.jdbc.user","admin");
+       System.setProperty("credential.store.jdbc.password","admin");
+       System.setProperty("credential.store.jdbc.driver","org.apache.derby.jdbc.ClientDriver");
 
        URL resource = JCloudsProviderTestWithStringType.class.getClassLoader().getResource(org.apache.airavata.common.utils.Constants.GFAC_CONFIG_XML);
        assert resource != null;
@@ -187,12 +126,6 @@ public class JCloudsProviderTestWithStringType{
 
        // host
        HostDescription host = new HostDescription(Ec2HostType.type);
-       host.getType().setHostName(instanceId);
-       host.getType().setHostAddress(hostAddress);
-
-       //Node
-       WorkflowNodeDetails nodeDetail=new WorkflowNodeDetails();
-       nodeDetail.setNodeInstanceId("IDontNeedaNode_063ba363-d840-4b4b-901a-6ef366e8d4d1");
 
        // app
        ApplicationDescription ec2Desc = new ApplicationDescription(Ec2ApplicationDeploymentType.type);
@@ -200,18 +133,20 @@ public class JCloudsProviderTestWithStringType{
        ApplicationDeploymentDescriptionType.ApplicationName name = ApplicationDeploymentDescriptionType.ApplicationName.Factory.newInstance();
        name.setStringValue("StringMerge");
        app.setApplicationName(name);
-       app.setExecutable("/home/ec2-user/mergeString.sh");
+       app.setExecutableLocation("/home/ec2-user/mergeString.sh");
        app.setExecutableType("sh");
 
        // service
        ServiceDescription serv = new ServiceDescription();
        serv.getType().setName("StringMerge");
 
+       WorkflowNodeDetails workflowNodeDetails=new WorkflowNodeDetails();
+
        //Job location
        String tempDir="/home/ec2-user";
        app.setScratchWorkingDirectory(tempDir);
-       app.setInputDataDirectory(tempDir+"/input");
-       app.setOutputDataDirectory(tempDir +"/output");
+       app.setInputDataDirectory(tempDir+"/inputData");
+       app.setOutputDataDirectory(tempDir +"/outputData");
        app.setStandardOutput(tempDir +"/stdout");
        app.setStandardError(tempDir +"/stderr");
 
@@ -245,7 +180,6 @@ public class JCloudsProviderTestWithStringType{
 
        jobExecutionContext=new JobExecutionContext(gFacConfiguration,serv.getType().getName());
        ApplicationContext applicationContext=new ApplicationContext();
-       jobExecutionContext.setWorkflowNodeDetails(nodeDetail);
        jobExecutionContext.setApplicationContext(applicationContext);
        applicationContext.setServiceDescription(serv);
        applicationContext.setApplicationDeploymentDescription(ec2Desc);
@@ -270,43 +204,21 @@ public class JCloudsProviderTestWithStringType{
 
        jobExecutionContext.setInMessageContext(inMessage);
        jobExecutionContext.setOutMessageContext(outMessage);
-
+       jobExecutionContext.setWorkflowNodeDetails(workflowNodeDetails);
        jobExecutionContext.setExperimentID(experimentId);
        jobExecutionContext.setExperiment(new Experiment(experimentId, "project1_b3f3548c-b7ad-489b-a455-dbd4b5bba78f", "admin", "StringMergeExperiment"));
        jobExecutionContext.setTaskData(new TaskDetails("IDontNeedaNode_b338a28c-09d0-43f8-8559-255a95ec6310"));
        jobExecutionContext.setGatewayID("php_reference_gateway");
+       jobExecutionContext.setRegistry(RegistryFactory.getLoggingRegistry());
        jobExecutionContext.setCredentialStoreToken(tockenId);
    }
 
    @Test
    public void testJCloudsProvider() throws RegistryException {
-       GFacImpl gFac= null;
+       GFacImpl gFac= new GFacImpl(null,null,null);
        try {
-           String sysUser = ClientSettings.getSetting(DEFAULT_USER);
-           String sysUserPwd = ClientSettings.getSetting(DEFAULT_USER_PASSWORD);
-           String gateway = ClientSettings.getSetting(DEFAULT_GATEWAY);
-           registry = RegistryFactory.getRegistry(gateway, sysUser, sysUserPwd);
-
-           gFac=new GFacImpl(registry, null,
-              AiravataRegistryFactory.getRegistry(new Gateway("default"),
-                           new AiravataUser("admin")));
-           jobExecutionContext.setRegistry(registry);
-           jobExecutionContext.setGfac(gFac);
-
-           /*MonitorPublisher publisher = new MonitorPublisher(new EventBus());
-           BetterGfacImpl.setMonitorPublisher(publisher);
-
-           gFac = new BetterGfacImpl(registry, null,
-                   AiravataRegistryFactory.getRegistry(new Gateway(gateway),
-                           new AiravataUser(sysUser)),null,publisher);*/
-
-           //gFac.submitJob(experimentId,"IDontNeedaNode_5af93bc4-5ebd-40ba-8ec1-f5f96c05bae5","php_reference_gateway");
-           monitor();
            gFac.submitJob(jobExecutionContext);
-           while(true){
-
-           }
-       } catch (Exception e) {
+       } catch (GFacException e) {
            e.printStackTrace();
        }
    }
@@ -316,51 +228,9 @@ public class JCloudsProviderTestWithStringType{
        data.setGatewayId(gatewayId);
        data.setRequestUser(user);
        data.setTokenId(tockenId);
-       CredentialReader reader=new CredentialReaderImpl(dbUtil);
+       CredentialReader reader=new CredentialReaderImpl(DBUtil.getCredentialStoreDBUtil());
        JCloudsSecurityContext securityContext=new JCloudsSecurityContext(userName,"aws-ec2",instanceId,reader,data);
        return securityContext;
    }
-
-   public void createTaskAndLaunch() throws RegistryException {
-       Experiment experiment = (Experiment) registry.get(RegistryModelType.EXPERIMENT, experimentId);
-       WorkflowNodeDetails iDontNeedaNode = ExperimentModelUtil.createWorkflowNode("IDontNeedaNode", null);
-       String nodeID = (String) registry.add(ChildDataType.WORKFLOW_NODE_DETAIL, iDontNeedaNode, experimentId);
-       TaskDetails taskDetails = ExperimentModelUtil.cloneTaskFromExperiment(experiment);
-       taskDetails.setTaskID((String) registry.add(ChildDataType.TASK_DETAIL, taskDetails, nodeID));
-   }
-
-   public void monitor() throws AiravataClientConnectException {
-       final Airavata.Client airavata = AiravataClientFactory.createAiravataClient("localhost", 8930);
-       Thread monitor = (new Thread(){
-           public void run() {
-               Map<String, JobStatus> jobStatuses = null;
-               while (true) {
-                   try {
-                       jobStatuses = airavata.getJobStatuses(experimentId);
-                       Set<String> strings = jobStatuses.keySet();
-                       for (String key : strings) {
-                           JobStatus jobStatus = jobStatuses.get(key);
-                           if(jobStatus == null){
-                               return;
-                           }else {
-                               if (JobState.COMPLETE.equals(jobStatus.getJobState())) {
-                                   System.out.println("Job completed Job ID: " + jobStatus.getJobState().toString());
-                                   return;
-                               }else{
-                                   System.out.println("Job ID:" + key + jobStatuses.get(key).getJobState().toString());
-                               }
-                           }
-                       }
-                       Thread.sleep(20000);
-                   } catch (Exception e) {
-                       e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                   }
-               }
-           }
-       });
-       monitor.start();
-   }
-
-
 }
 

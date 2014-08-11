@@ -35,17 +35,22 @@ import org.junit.Before;
 import org.junit.Test;
 
 import javax.validation.constraints.AssertFalse;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.UUID;
 
 public class Ec2_credentialTest {
     DBUtil dbUtil;
-    String accessKey="gsvycnvnvnmmhp9vp395u85M65y65kjVHUihyhrqu";
-    String secretKey="HVGCU9UJD8RYgtvmhfhv5vy575h3i4utbcgRH92{rgtbnth-DBUtil0_dbUtilj4GTYHIjrtri";
+    String accessKey="";
+    String secretKey="";
+    String publicKeyFile="/etc/ssh/.ssh/airavata.pem";
+    String gateWayName="php_reference_gateway";
 
     @Before
     public void setupCredentialStore() throws IllegalAccessException, ClassNotFoundException, InstantiationException, SQLException {
-        System.setProperty("credential.store.keystore.url", "/usr/local/AiravataNewProject/airavata/modules/configuration/server/src/main/resources/airavata.jks");
+        System.setProperty("credential.store.keystore.url", "/usr/local/project/airavata/modules/configuration/server/src/main/resources/airavata.jks");
         System.setProperty("credential.store.keystore.alias", "airavata");
         System.setProperty("credential.store.keystore.password", "airavata");
         System.setProperty("credential.store.jdbc.url","jdbc:derby://localhost:1527/credential_store;create=true;user=admin;password=admin");
@@ -80,7 +85,7 @@ public class Ec2_credentialTest {
     public void testEc2CredentialWriter() throws ApplicationSettingsException {
 
         // create ec2 credential
-        Ec2Credential credential=new Ec2Credential(accessKey,secretKey,null,"gateway123","ec2-user");
+        Ec2Credential credential=new Ec2Credential(accessKey,secretKey,null,gateWayName,"ec2-user");
         UUID uuid = UUID.randomUUID();
         System.out.println("TokenId: " + uuid.toString());
         credential.setToken(uuid.toString());
@@ -89,8 +94,16 @@ public class Ec2_credentialTest {
         // write credential
         Ec2CredentialWriter writer=new Ec2CredentialWriter(dbUtil);
         try {
+            FileInputStream fis= new FileInputStream(publicKeyFile);
+            byte[] bytes=new byte[(int)fis.getChannel().size()];
+            fis.read(bytes);
+            credential.setPublickey(bytes);
             writer.writeCredentials(credential);
         } catch (CredentialStoreException e) {
+            e.printStackTrace();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
@@ -98,7 +111,7 @@ public class Ec2_credentialTest {
         CredentialReader credentialReader = new CredentialReaderImpl(dbUtil);
         Credential credential1=null;
         try {
-            credential1=credentialReader.getCredential("gateway123", uuid.toString());
+            credential1=credentialReader.getCredential(gateWayName, uuid.toString());
         } catch (CredentialStoreException e) {
             e.printStackTrace();
         }

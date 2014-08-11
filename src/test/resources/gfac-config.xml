@@ -16,7 +16,7 @@
         </Handler>
     </DaemonHandlers>
 
-    <Provider class="org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider" host="org.apache.airavata.schemas.gfac.impl.Ec2HostTypeImpl" executionMode="async">
+    <Provider class="org.apache.airavata.gfac.jclouds.provider.impl.JCloudsProvider" host="org.apache.airavata.schemas.gfac.impl.Ec2HostTypeImpl">
         <InHandlers>
             <Handler class="org.apache.airavata.gfac.jclouds.handler.JCloudsInHandler"/>
         </InHandlers>
