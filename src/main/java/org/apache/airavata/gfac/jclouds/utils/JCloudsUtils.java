@@ -269,15 +269,16 @@ public class JCloudsUtils {
         JobSubmissionInterface jobSubmissionInterface=computeResource.getJobSubmissionInterfaces().get(0);
         CloudJobSubmission cloudJobSubmission=appCatalog.getComputeResource().getCloudJobSubmission(jobSubmissionInterface.getJobSubmissionInterfaceId());
 
-            String credentialStoreToken = jobExecutionContext.getCredentialStoreToken(); // this is set by the framework
-            RequestData requestData = null;
-
-            String providerName=null;
+        String credentialStoreToken = jobExecutionContext.getCredentialStoreToken(); // this is set by the framework
+        String gatewayName=jobExecutionContext.getGatewayID();    
+        RequestData requestData = null;
+        String providerName=null;
+        
             if(cloudJobSubmission.getProviderName()== ProviderName.EC2){
                providerName="aws-ec2";
             }
             try {
-                requestData = new RequestData("php_reference_gateway");
+                requestData = new RequestData(gatewayName);
                 requestData.setTokenId(credentialStoreToken);
                 CredentialReader reader=new CredentialReaderImpl(DBUtil.getCredentialStoreDBUtil());
                 securityContext=new JCloudsSecurityContext(cloudJobSubmission.getUserAccountName(),providerName,cloudJobSubmission.getNodeId(),reader,requestData);

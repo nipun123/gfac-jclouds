@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.apache.airavata</groupId>
         <artifactId>gfac</artifactId>
-        <version>0.12-SNAPSHOT</version>
+        <version>0.14-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -30,27 +30,34 @@
             <artifactId>airavata-gfac-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- Logging -->
+
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
+            <groupId>org.apache.airavata</groupId>
+            <artifactId>airavata-gfac-hpc-monitor</artifactId>
+            <version>0.14-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.airavata</groupId>
+            <artifactId>airavata-credential-store</artifactId>
+            <version>0.14-SNAPSHOT</version>
         </dependency>
 
         <!--JClouds -->
         <dependency>
             <groupId>org.apache.jclouds</groupId>
             <artifactId>jclouds-all</artifactId>
-            <version>1.7.3</version>
+            <version>1.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.jclouds.driver</groupId>
             <artifactId>jclouds-sshj</artifactId>
-            <version>1.7.3</version>
+            <version>1.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.jclouds.driver</groupId>
             <artifactId>jclouds-log4j</artifactId>
-            <version>1.7.3</version>
+            <version>1.7.1</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -60,3 +67,4 @@
     </dependencies>
 
 </project>
+
