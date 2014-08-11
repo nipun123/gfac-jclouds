@@ -42,7 +42,12 @@ import org.apache.airavata.model.appcatalog.computeresource.CloudJobSubmission;
 import org.apache.airavata.model.appcatalog.computeresource.ComputeResourceDescription;
 import org.apache.airavata.model.appcatalog.computeresource.JobSubmissionInterface;
 import org.apache.airavata.model.appcatalog.computeresource.ProviderName;
+import org.apache.airavata.model.workspace.Project;
+import org.apache.airavata.model.workspace.experiment.Experiment;
 import org.apache.airavata.model.workspace.experiment.TaskDetails;
+import org.apache.airavata.persistance.registry.jpa.model.Gateway;
+import org.apache.airavata.registry.cpi.Registry;
+import org.apache.airavata.registry.cpi.RegistryModelType;
 import org.apache.airavata.schemas.gfac.Ec2HostType;
 import org.jclouds.ContextBuilder;
 import org.jclouds.compute.ComputeService;
@@ -268,17 +273,15 @@ public class JCloudsUtils {
 
         JobSubmissionInterface jobSubmissionInterface=computeResource.getJobSubmissionInterfaces().get(0);
         CloudJobSubmission cloudJobSubmission=appCatalog.getComputeResource().getCloudJobSubmission(jobSubmissionInterface.getJobSubmissionInterfaceId());
-
-        String credentialStoreToken = jobExecutionContext.getCredentialStoreToken(); // this is set by the framework
-        String gatewayName=jobExecutionContext.getGatewayID();    
+        String credentialStoreToken = jobExecutionContext.getCredentialStoreToken();                         // this is set by the framework
         RequestData requestData = null;
         String providerName=null;
-        
+
             if(cloudJobSubmission.getProviderName()== ProviderName.EC2){
                providerName="aws-ec2";
             }
             try {
-                requestData = new RequestData(gatewayName);
+                requestData = new RequestData(ServerSettings.getDefaultUserGateway());
                 requestData.setTokenId(credentialStoreToken);
                 CredentialReader reader=new CredentialReaderImpl(DBUtil.getCredentialStoreDBUtil());
                 securityContext=new JCloudsSecurityContext(cloudJobSubmission.getUserAccountName(),providerName,cloudJobSubmission.getNodeId(),reader,requestData);
