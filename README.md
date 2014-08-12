@@ -8,13 +8,9 @@ Running Tests:
 1. Ec2_credentialTest 
 
    Start your local AiravataServer
-
    Make sure the credential store specific details in the airavata-server.properties and the test are same
-
    provide your ec2 accessKey, secretKey, and ssh publicKeyFile to the node
-
    Provide gateWayName, setPortalUserName
-
    Run the test
 
    This will create a ec2Credential in credential store,use the tokeId shown here to run the other tests
