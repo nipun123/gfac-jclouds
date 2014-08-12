@@ -31,6 +31,7 @@ import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.apache.airavata.gfac.core.utils.OutputUtils;
 import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
+import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
@@ -40,6 +41,7 @@ import org.apache.airavata.registry.cpi.RegistryException;
 import org.apache.airavata.registry.cpi.RegistryModelType;
 import org.apache.airavata.schemas.gfac.ApplicationDeploymentDescriptionType;
 import org.apache.airavata.schemas.gfac.Ec2HostType;
+import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
@@ -56,22 +58,24 @@ public class JCloudsOutHandler extends AbstractHandler {
     private LoginCredentials credentials;
     private JCloudsFileTransfer fileTransfer;
     private JCloudsSecurityContext securityContext;
+    private ComputeServiceContext context;
+    private String nodeId;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
-        jCloudsUtils=JCloudsUtils.getInstance();
+        jCloudsUtils=new JCloudsUtils();
         try{
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
-            if(securityContext==null){
-                jCloudsUtils.addSecurityContext(jobExecutionContext);
-            }
-            jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
+            context=securityContext.getContext();
         }catch (GFacException e){
             throw new GFacHandlerException("Error while reading security context or initialising ec2 environment");
-        } catch (AppCatalogException e) {
-            throw new GFacHandlerException("Error while adding security context");
         }
-        credentials=jCloudsUtils.getCredentials();
-        fileTransfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),jCloudsUtils.getCredentials());
+        try {
+            credentials=jCloudsUtils.makeLoginCredentials(securityContext);
+        } catch (PublicKeyException e) {
+            e.printStackTrace();
+        }
+        nodeId=securityContext.getNodeId();
+        fileTransfer=new JCloudsFileTransfer(context,nodeId,credentials);
 
         if(jobExecutionContext.getApplicationContext().getHostDescription().getType() instanceof Ec2HostType){
             TaskDetails taskDetails=null;
@@ -171,7 +175,7 @@ public class JCloudsOutHandler extends AbstractHandler {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        jCloudsUtils.stopNode();
+        jCloudsUtils.stopNode(context.getComputeService(),nodeId);
     }
 
     public String stageOutputFiles(JobExecutionContext jobExecutionContext,String paramValue) throws GFacHandlerException {
@@ -197,11 +201,11 @@ public class JCloudsOutHandler extends AbstractHandler {
 
         try{
             targetFile=app.getOutputDataDirectory()+File.separator+fileName;
-            if (!jCloudsUtils.isS3CmdInstall(credentials)){
-                jCloudsUtils.installS3CmdOnNode(securityContext,credentials);
+            if (!jCloudsUtils.isS3CmdInstall(context.getComputeService(),nodeId,credentials)){
+                jCloudsUtils.installS3CmdOnNode(context.getComputeService(),securityContext,credentials,nodeId);
             }
             String command="s3cmd put "+targetFile+" "+paramValue;
-            ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, command, false);
+            ExecResponse response=jCloudsUtils.runScriptOnNode(context.getComputeService(),credentials, command,nodeId,false);
             int exitStatus=response.getExitStatus();
             if(exitStatus ==0){
               log.info("Successfully put the file "+targetFile+" to s3 ");
@@ -222,7 +226,7 @@ public class JCloudsOutHandler extends AbstractHandler {
         try{
             outputDirectoryName=app.getOutputDataDirectory();
             String command="ls "+outputDirectoryName;
-            execResponse=jCloudsUtils.runScriptOnNode(credentials,command,false);
+            execResponse=jCloudsUtils.runScriptOnNode(context.getComputeService(),credentials,command,nodeId,false);
             String output=execResponse.getOutput();
             if(!output.equals("")){
               outputFileList= Arrays.asList(output.split("\r\n"));

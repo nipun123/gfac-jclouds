@@ -30,13 +30,16 @@ import org.apache.airavata.gfac.core.handler.AbstractHandler;
 import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
+import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
+import org.apache.airavata.gfac.jclouds.utils.SecurityUtils;
 import org.apache.airavata.model.workspace.experiment.*;
 import org.apache.airavata.registry.cpi.ChildDataType;
 import org.apache.airavata.registry.cpi.RegistryException;
 import org.apache.airavata.schemas.gfac.ApplicationDeploymentDescriptionType;
 import org.apache.airavata.schemas.gfac.URIParameterType;
+import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
@@ -53,17 +56,18 @@ public class JCloudsInHandler extends AbstractHandler{
     private JCloudsUtils jCloudsUtils;
     private LoginCredentials credentials;
     private JCloudsSecurityContext securityContext;
+    private ComputeServiceContext context;
+    private String nodeId;
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException{
-        jCloudsUtils=JCloudsUtils.getInstance();
+        jCloudsUtils=new JCloudsUtils();
         if (jobExecutionContext==null){
             throw new GFacHandlerException("JobExecutionContext is null");
         }
         try{
-           securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+            securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
             if (securityContext==null){
-                jCloudsUtils.addSecurityContext(jobExecutionContext);
-                securityContext=jCloudsUtils.getSecurityContext();
+                securityContext= SecurityUtils.addSecurityContext(jobExecutionContext);
             }else{
                 log.info("successfully retrieved security context");
             }
@@ -73,15 +77,17 @@ public class JCloudsInHandler extends AbstractHandler{
         } catch (AppCatalogException e) {
            log.error("Error occur in retrieving the job submission details from app catalog");
         }
-
+        nodeId=securityContext.getNodeId();
         try {
-            jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
-            credentials=jCloudsUtils.getCredentials();
+            context=jCloudsUtils.initJCloudsEnvironment(jobExecutionContext);
+            credentials=jCloudsUtils.makeLoginCredentials(securityContext);
         }catch (GFacException e){
             throw new GFacHandlerException("fail to initialize ec2 environment");
+        } catch (PublicKeyException e) {
+            e.printStackTrace();
         }
 
-        transfer=new JCloudsFileTransfer(jCloudsUtils.getContext(),securityContext.getNodeId(),credentials);
+        transfer=new JCloudsFileTransfer(context,nodeId,credentials);
         log.info("Setup Job directories");
         super.invoke(jobExecutionContext);
 
@@ -158,11 +164,11 @@ public class JCloudsInHandler extends AbstractHandler{
        String targetFile=null;
        try {
             targetFile=app.getInputDataDirectory()+File.separator+fileName;
-            if(!jCloudsUtils.isS3CmdInstall(credentials)){
-                jCloudsUtils.installS3CmdOnNode(securityContext,credentials);
+            if(!jCloudsUtils.isS3CmdInstall(context.getComputeService(),nodeId,credentials)){
+                jCloudsUtils.installS3CmdOnNode(context.getComputeService(),securityContext,credentials,nodeId);
             }
             String command="s3cmd get "+paramValue+" "+targetFile;
-            ExecResponse response=jCloudsUtils.runScriptOnNode(credentials,command,false);
+            ExecResponse response=jCloudsUtils.runScriptOnNode(context.getComputeService(),credentials,command,nodeId,false);
             int exitStatus=response.getExitStatus();
             if (exitStatus==0){
               log.info("successfully get file "+targetFile+" from s3");
@@ -188,7 +194,7 @@ public class JCloudsInHandler extends AbstractHandler{
         app.setStandardOutput(stdOutDirectory);
         String createDirectories=new StringBuilder().append("mkdir -m 777 "+inputDataDirectory+"\n")
                                                     .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
-        ExecResponse response=jCloudsUtils.runScriptOnNode(credentials, createDirectories, true);
+        ExecResponse response=jCloudsUtils.runScriptOnNode(context.getComputeService(),credentials, createDirectories,nodeId,true);
 
         try{
             if(response.getExitStatus()==0){

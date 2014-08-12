@@ -36,10 +36,14 @@ import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler;
+import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
+import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
+import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.model.workspace.experiment.JobState;
 import org.apache.airavata.schemas.gfac.Ec2ApplicationDeploymentType;
 
+import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.domain.ExecResponse;
 import org.jclouds.domain.LoginCredentials;
 
@@ -55,10 +59,10 @@ public class JCloudsProvider extends AbstractProvider {
     private static final Logger log = LoggerFactory.getLogger(JCloudsProvider.class);
 
     private String jobID = null;
-    private String taskID = null;
     private LoginCredentials credentials;
     private JCloudsUtils jCloudsUtils;
-
+    private ComputeServiceContext context;
+    private JCloudsSecurityContext securityContext;
 
     public void initialize(JobExecutionContext jobExecutionContext) throws GFacException, GFacProviderException {
         if(jobExecutionContext!=null) {
@@ -67,14 +71,18 @@ public class JCloudsProvider extends AbstractProvider {
             throw new GFacProviderException("Job Execution Context is null" + jobExecutionContext);
         }
         super.initialize(jobExecutionContext);
-        jCloudsUtils=JCloudsUtils.getInstance();
-        credentials=jCloudsUtils.getCredentials();
-        taskID=jobExecutionContext.getTaskData().getTaskID();
+        jCloudsUtils=new JCloudsUtils();
+        securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
+        context=securityContext.getContext();
+        try {
+            credentials=jCloudsUtils.makeLoginCredentials(securityContext);
+        } catch (PublicKeyException e) {
+            e.printStackTrace();
+        }
 
         details.setJobID(jobID);
         details.setJobDescription("Job is submitted");
         jobExecutionContext.setJobDetails(details);
-
         GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.SETUP);
     }
 
@@ -82,10 +90,10 @@ public class JCloudsProvider extends AbstractProvider {
     @Override
     public void execute(JobExecutionContext jobExecutionContext) throws GFacProviderException, GFacException {
         String command=buildCommand(jobExecutionContext);
-        ExecResponse response=null;
         jobExecutionContext.getNotifier().publish(new StartExecutionEvent());
+
         try{
-            ListenableFuture<ExecResponse> future=jCloudsUtils.submitScriptToNode(credentials,command,true);
+            ListenableFuture<ExecResponse> future=jCloudsUtils.submitScriptToNode(context.getComputeService(),credentials,command,securityContext.getNodeId(),true);
             delegateToMonitorHandler(future);
         }catch (Exception e){
             log.error("Error submitting job "+e.toString());

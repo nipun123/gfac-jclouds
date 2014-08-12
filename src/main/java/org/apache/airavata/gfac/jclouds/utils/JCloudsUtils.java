@@ -74,29 +74,15 @@ import static org.jclouds.scriptbuilder.domain.Statements.exec;
 public class JCloudsUtils {
     private static final Logger log = LoggerFactory.getLogger(JCloudsUtils.class);
 
-    private JCloudsSecurityContext securityContext;
-    private String nodeId;
-    private ComputeServiceContext context;
-    private ComputeService service;
-    private LoginCredentials credentials;
-    private static JCloudsUtils jCloudsUtils;
-
-   public static JCloudsUtils getInstance(){
-      if (jCloudsUtils==null){
-          jCloudsUtils=new JCloudsUtils();
-      }
-      return jCloudsUtils;
-   }
-
-   public boolean terminateNode(){
-       service.destroyNode(nodeId);
-       if (checkNodeStateEqual(NodeMetadata.Status.TERMINATED)){
+   public boolean terminateNode(ComputeService service,String nodeId){
+       if (!checkNodeStateEqual(service,nodeId,NodeMetadata.Status.TERMINATED)){
+           service.destroyNode(nodeId);
            return true;
        }
        return false;
    }
 
-   public boolean checkNodeStateEqual(NodeMetadata.Status status ){
+   public boolean checkNodeStateEqual(ComputeService service,String nodeId,NodeMetadata.Status status ){
        NodeMetadata node=service.getNodeMetadata(nodeId);
        if (node.getStatus()==status){
            return true;
@@ -104,23 +90,23 @@ public class JCloudsUtils {
        return false;
    }
 
-   public boolean startNode(){
-       service.resumeNode(nodeId);
-       if (checkNodeStateEqual(NodeMetadata.Status.RUNNING)){
+   public boolean startNode(ComputeService service,String nodeId){
+       if (!checkNodeStateEqual(service,nodeId,NodeMetadata.Status.RUNNING)){
+           service.resumeNode(nodeId);
            return true;
        }
        return false;
    }
 
-   public boolean stopNode(){
-       service.suspendNode(nodeId);
-       if (checkNodeStateEqual(NodeMetadata.Status.SUSPENDED)){
+   public boolean stopNode(ComputeService service,String nodeId){
+       if (checkNodeStateEqual(service,nodeId,NodeMetadata.Status.RUNNING)){
+           service.suspendNode(nodeId);
            return true;
        }
        return false;
    }
 
-    public ExecResponse runScriptOnNode(LoginCredentials credentials,String command,boolean runAsRoot){
+    public ExecResponse runScriptOnNode(ComputeService service,LoginCredentials credentials,String command,String nodeId,boolean runAsRoot){
         TemplateOptions options=TemplateOptions.Builder.overrideLoginCredentials(credentials);
         try {
             ExecResponse response=service.runScriptOnNode(nodeId,exec(command),
@@ -134,7 +120,7 @@ public class JCloudsUtils {
         }
     }
 
-    public ListenableFuture<ExecResponse> submitScriptToNode(LoginCredentials credentials,String command,boolean runAsRoot){
+    public ListenableFuture<ExecResponse> submitScriptToNode(ComputeService service,LoginCredentials credentials,String command,String nodeId,boolean runAsRoot){
         TemplateOptions options=TemplateOptions.Builder.overrideLoginCredentials(credentials);
 
         ListenableFuture<ExecResponse> future=null;
@@ -168,16 +154,16 @@ public class JCloudsUtils {
         }
     }
 
-    public boolean isS3CmdInstall(LoginCredentials credentials){
+    public boolean isS3CmdInstall(ComputeService service,String nodeId,LoginCredentials credentials){
         String command="s3cmd --version";
-        ExecResponse response=runScriptOnNode(credentials,command,false);
+        ExecResponse response=runScriptOnNode(service,credentials,command,nodeId,false);
         if(response.getExitStatus()==12){
             return true;
         }
         return false;
     }
 
-    public void installS3CmdOnNode(JCloudsSecurityContext securityContext,LoginCredentials credentials){
+    public void installS3CmdOnNode(ComputeService service,JCloudsSecurityContext securityContext,LoginCredentials credentials,String nodeId){
         String installs3cmd=new StringBuilder().append("cd /etc/yum.repos.d \n")
                 .append("sudo wget http://s3tools.org/repo/RHEL_6/s3tools.repo \n")
                 .append("sudo yum -y install s3cmd")
@@ -194,11 +180,12 @@ public class JCloudsUtils {
                 .append("y")
                 .toString();
 
-        runScriptOnNode(credentials,installs3cmd,true);
-        runScriptOnNode(credentials,configures3cmd,true);
+        runScriptOnNode(service,credentials,installs3cmd,nodeId,true);
+        runScriptOnNode(service,credentials,configures3cmd,nodeId,true);
     }
 
-    public void initJCloudsEnvironment(JobExecutionContext jobExecutionContext) throws GFacException {
+    public ComputeServiceContext initJCloudsEnvironment(JobExecutionContext jobExecutionContext) throws GFacException {
+        JCloudsSecurityContext securityContext=null;
         if(jobExecutionContext!=null){
             securityContext=(JCloudsSecurityContext)jobExecutionContext.getSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT);
         }else{
@@ -222,7 +209,7 @@ public class JCloudsUtils {
             throw new GFacException("username is empty");
         }
 
-        nodeId=securityContext.getNodeId();
+        String nodeId=securityContext.getNodeId();
 
         Properties overides=new Properties();
         long scriptTimeout= TimeUnit.MILLISECONDS.convert(20,TimeUnit.MINUTES);
@@ -234,21 +221,17 @@ public class JCloudsUtils {
                 .credentials(securityContext.getAccessKey(), securityContext.getSecretKey())
                 .modules(modules)
                 .overrides(overides);
-        context= builder.buildView(ComputeServiceContext.class);
-        service=context.getComputeService();
-        startNode();
-        try {
-            makeLoginCredentials();
-        } catch (PublicKeyException e) {
-            log.error("Failed to create login credentials for the node");
-            throw new GFacException("Failed to create login credentials for the node");
-        }
+        ComputeServiceContext context= builder.buildView(ComputeServiceContext.class);
+        startNode(context.getComputeService(),nodeId);
+        securityContext.setContext(context);
+        return context;
     }
 
-    private void makeLoginCredentials() throws PublicKeyException {
+    public LoginCredentials makeLoginCredentials(JCloudsSecurityContext securityContext) throws PublicKeyException {
         String user=securityContext.getUserName();
-
         String privateKey=securityContext.getPublicKey();
+        LoginCredentials credentials=null;
+
         if(privateKey==null || privateKey.equals("")){
             log.info("the public key for the node does not valid");
             throw new PublicKeyException("the public key for the node does not valid");
@@ -259,56 +242,7 @@ public class JCloudsUtils {
         }catch (Exception e){
            log.error("fail to create login credentials for the node");
         }
-    }
-
-    public JobExecutionContext addSecurityContext(JobExecutionContext jobExecutionContext) throws AppCatalogException {
-        AppCatalog appCatalog = AppCatalogFactory.getAppCatalog();
-
-        TaskDetails taskData=jobExecutionContext.getTaskData();
-        String applicationDeploymentId = taskData.getApplicationDeploymentId();
-        ApplicationDeploymentDescription applicationDeployment = appCatalog.
-                getApplicationDeployment().getApplicationDeployement(applicationDeploymentId);
-        ComputeResourceDescription computeResource = appCatalog.getComputeResource().
-                getComputeResource(applicationDeployment.getComputeHostId());
-
-        JobSubmissionInterface jobSubmissionInterface=computeResource.getJobSubmissionInterfaces().get(0);
-        CloudJobSubmission cloudJobSubmission=appCatalog.getComputeResource().getCloudJobSubmission(jobSubmissionInterface.getJobSubmissionInterfaceId());
-        String credentialStoreToken = jobExecutionContext.getCredentialStoreToken();                         // this is set by the framework
-        RequestData requestData = null;
-        String providerName=null;
-
-            if(cloudJobSubmission.getProviderName()== ProviderName.EC2){
-               providerName="aws-ec2";
-            }
-            try {
-                requestData = new RequestData(ServerSettings.getDefaultUserGateway());
-                requestData.setTokenId(credentialStoreToken);
-                CredentialReader reader=new CredentialReaderImpl(DBUtil.getCredentialStoreDBUtil());
-                securityContext=new JCloudsSecurityContext(cloudJobSubmission.getUserAccountName(),providerName,cloudJobSubmission.getNodeId(),reader,requestData);
-
-            } catch (ApplicationSettingsException e) {
-                e.printStackTrace();
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
-            } catch (InstantiationException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            }
-            jobExecutionContext.addSecurityContext(JCloudsSecurityContext.JCLOUDS_SECURITY_CONTEXT,securityContext);
-            return jobExecutionContext;
-    }
-
-    public LoginCredentials getCredentials() {
         return credentials;
-    }
-
-    public ComputeServiceContext getContext() {
-        return context;
-    }
-
-    public JCloudsSecurityContext getSecurityContext() {
-        return securityContext;
     }
 }
 
