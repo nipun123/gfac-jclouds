@@ -68,6 +68,7 @@ public class JCloudsProvider extends AbstractProvider {
         if(jobExecutionContext!=null) {
             jobID=jobExecutionContext.getTaskData().getTaskID()+jobExecutionContext.getApplicationContext().getHostDescription().getType().getHostAddress()+"_"+ Calendar.getInstance().getTimeInMillis();
         }else{
+            log.error("Job Execution context is null");
             throw new GFacProviderException("Job Execution Context is null" + jobExecutionContext);
         }
         super.initialize(jobExecutionContext);
@@ -77,7 +78,8 @@ public class JCloudsProvider extends AbstractProvider {
         try {
             credentials=jCloudsUtils.makeLoginCredentials(securityContext);
         } catch (PublicKeyException e) {
-            e.printStackTrace();
+            log.error("Fail to create credentials for ec2 node");
+            throw new GFacException("Fail to create credentials for ec2 node");
         }
 
         details.setJobID(jobID);
@@ -99,23 +101,12 @@ public class JCloudsProvider extends AbstractProvider {
             log.error("Error submitting job "+e.toString());
             details.setJobID("none");
             GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
+            throw new GFacException("Failed to submit job "+jobID);
 
         }
         String jobStatusMessage = "submitted JobID= " + jobID;
         log.info(jobStatusMessage);
-
-
-        /*response.getExitStatus();
-        if(response.getExitStatus()==0){
-           String jobResult=response.getOutput();
-           log.info("Result of the job : "+jobResult);
-           GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.COMPLETE);
-        }else{
-           String error=response.getError();
-           log.info("Job execution failed with error :"+error);
-           GFacUtils.saveJobStatus(jobExecutionContext,details, JobState.FAILED);
-        }*/
-
+        GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.SUBMITTED);
     }
 
 
@@ -167,7 +158,7 @@ public class JCloudsProvider extends AbstractProvider {
         }
 
         if(monitorHandler==null){
-            log.info("No suitable handler exist to monitor job");
+            log.info("No suitable handler exist to monitor job so out handler will not be invoked");
         }else{
             try {
                 ((JCloudMonitorHandler)monitorHandler).setFuture(future);

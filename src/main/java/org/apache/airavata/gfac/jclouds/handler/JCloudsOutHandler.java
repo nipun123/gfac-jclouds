@@ -72,7 +72,11 @@ public class JCloudsOutHandler extends AbstractHandler {
         try {
             credentials=jCloudsUtils.makeLoginCredentials(securityContext);
         } catch (PublicKeyException e) {
-            e.printStackTrace();
+            log.error("Error occurred while creating the login credentials public key is not set");
+            throw new GFacHandlerException("Error occurred while creating the login credentials public key is not set");
+        } catch (GFacException e) {
+            log.error("Error occurred while creating the login credentials");
+            throw new GFacHandlerException("Error occurred while creating the login credentials");
         }
         nodeId=securityContext.getNodeId();
         fileTransfer=new JCloudsFileTransfer(context,nodeId,credentials);
@@ -82,8 +86,8 @@ public class JCloudsOutHandler extends AbstractHandler {
             try{
                taskDetails=(TaskDetails)jobExecutionContext.getRegistry().get(RegistryModelType.TASK_DETAIL,jobExecutionContext.getTaskData().getTaskID());
             }catch (RegistryException e){
-                log.error("Error retrieving job details from Registry");
-                throw new GFacHandlerException("Error retrieving job details from Registry", e);
+               log.error("Error retrieving job details from Registry");
+               throw new GFacHandlerException("Error retrieving job details from Registry", e);
             }
         }
 
@@ -173,7 +177,7 @@ public class JCloudsOutHandler extends AbstractHandler {
         } catch (RegistryException e) {
             log.error("Error occurred while persisting data "+e.getLocalizedMessage());
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error occurred while persisting data "+e.getLocalizedMessage());
         }
         jCloudsUtils.stopNode(context.getComputeService(),nodeId);
     }
@@ -193,7 +197,7 @@ public class JCloudsOutHandler extends AbstractHandler {
         return targetFile;
     }
 
-    public void stages3Files(JobExecutionContext jobExecutionContext,String paramValue){
+    public void stages3Files(JobExecutionContext jobExecutionContext,String paramValue) throws GFacHandlerException {
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
         int i=paramValue.lastIndexOf(File.separator);
         String fileName=paramValue.substring(i+1);
@@ -213,12 +217,13 @@ public class JCloudsOutHandler extends AbstractHandler {
               log.info("fail to put the file "+targetFile+" to s3");
             }
         }catch (Exception e){
-            log.error("Error while putting file to s3");
+            log.error("Error while putting file to s3 "+paramValue);
+            throw new GFacHandlerException("Error while putting file to s3 "+paramValue);
         }
 
     }
 
-    public List<String> getOutPutFileList(JobExecutionContext jobExecutionContext){
+    public List<String> getOutPutFileList(JobExecutionContext jobExecutionContext) throws GFacHandlerException {
         ApplicationDeploymentDescriptionType app=jobExecutionContext.getApplicationContext().getApplicationDeploymentDescription().getType();
         List<String> outputFileList=new ArrayList<String>();
         String outputDirectoryName=null;
@@ -233,6 +238,7 @@ public class JCloudsOutHandler extends AbstractHandler {
             }
         }catch (Exception e){
             log.error("Error occurred while getting output file list");
+            throw new GFacHandlerException("Error occurred while getting output file list");
         }
         return outputFileList;
     }

@@ -31,6 +31,7 @@ import org.apache.airavata.gfac.core.handler.GFacHandlerException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
 import org.apache.airavata.gfac.jclouds.exceptions.FileTransferException;
 import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
+import org.apache.airavata.gfac.jclouds.exceptions.RunScriptFailureException;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsUtils;
 import org.apache.airavata.gfac.jclouds.utils.SecurityUtils;
@@ -73,9 +74,11 @@ public class JCloudsInHandler extends AbstractHandler{
             }
             securityContext.getCredentialsFromStore();
         } catch (GFacException e) {
-           log.error("Error occur in retrieving the security context");
+            log.error("Error occur in retrieving the security context");
+            throw new GFacHandlerException("Error occur in retrieving the security context");
         } catch (AppCatalogException e) {
-           log.error("Error occur in retrieving the job submission details from app catalog");
+            log.error("Error occur in retrieving the job submission details from app catalog");
+            throw new GFacHandlerException("Error occur in retrieving the job submission details from app catalog" );
         }
         nodeId=securityContext.getNodeId();
         try {
@@ -151,8 +154,8 @@ public class JCloudsInHandler extends AbstractHandler{
             targetFile=app.getInputDataDirectory()+File.separator+fileName;
             transfer.uploadFileToEc2(targetFile,paramValue);
        }catch (FileTransferException e){
-            log.error("Error while uploading file "+paramValue+" :"+e.toString());
-            throw new GFacHandlerException("error occured "+e.getLocalizedMessage());
+            log.error("Error while uploading file "+paramValue);
+            throw new GFacHandlerException("error occured while uploading files to ec2");
        }
        return targetFile;
     }
@@ -177,6 +180,7 @@ public class JCloudsInHandler extends AbstractHandler{
             }
        }catch (Exception e){
           log.error("Error while getting file from s3 "+e.toString());
+          new GFacHandlerException("Error while getting file from s3 "+e.toString());
        }
        return targetFile;
     }
@@ -194,7 +198,13 @@ public class JCloudsInHandler extends AbstractHandler{
         app.setStandardOutput(stdOutDirectory);
         String createDirectories=new StringBuilder().append("mkdir -m 777 "+inputDataDirectory+"\n")
                                                     .append("mkdir -m 777 "+outputDataDirectory+"\n").toString();
-        ExecResponse response=jCloudsUtils.runScriptOnNode(context.getComputeService(),credentials, createDirectories,nodeId,true);
+        ExecResponse response= null;
+        try {
+            response = jCloudsUtils.runScriptOnNode(context.getComputeService(),credentials, createDirectories,nodeId,true);
+        } catch (RunScriptFailureException e) {
+            log.error("Fail to run script on node");
+            throw new GFacHandlerException("Fail to run script on node");
+        }
 
         try{
             if(response.getExitStatus()==0){
@@ -216,7 +226,8 @@ public class JCloudsInHandler extends AbstractHandler{
                 registry.add(ChildDataType.DATA_TRANSFER_DETAIL, detail, jobExecutionContext.getTaskData().getTaskID());
             }
         }catch (RegistryException re){
-            throw new GFacHandlerException("Error persisting status");
+            log.error("Error persisting data transfer status to registry");
+            throw new GFacHandlerException("Error persisting data transfer status to registry");
         }
 
     }

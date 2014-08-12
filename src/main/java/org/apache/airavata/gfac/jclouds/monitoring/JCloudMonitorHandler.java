@@ -61,9 +61,13 @@ public class JCloudMonitorHandler extends ThreadedHandler{
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException {
         super.invoke(jobExecutionContext);
         if(future ==null){
-            logger.info("the future is not set for this job");
+            logger.info("the future is not set for this job "+jobExecutionContext.getJobDetails().getJobID());
         }else{
             MonitorID monitorID=new JCloudsMonitorID(jobExecutionContext, future);
+            monitorID.setJobID(jobExecutionContext.getJobDetails().getJobID());
+            monitorID.setTaskID(jobExecutionContext.getTaskData().getTaskID());
+            monitorID.setExperimentID(jobExecutionContext.getExperimentID());
+            monitorID.setWorkflowNodeID(jobExecutionContext.getWorkflowNodeDetails().getNodeInstanceId());
             monitor.getRunningQueue().add(monitorID);
             future =null;
         }

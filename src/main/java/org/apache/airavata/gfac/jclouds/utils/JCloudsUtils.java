@@ -36,7 +36,10 @@ import org.apache.airavata.credential.store.store.impl.CredentialReaderImpl;
 import org.apache.airavata.gfac.GFacException;
 import org.apache.airavata.gfac.RequestData;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
+import org.apache.airavata.gfac.core.handler.GFacHandlerException;
+import org.apache.airavata.gfac.jclouds.exceptions.NodeStartFailureException;
 import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
+import org.apache.airavata.gfac.jclouds.exceptions.RunScriptFailureException;
 import org.apache.airavata.model.appcatalog.appdeployment.ApplicationDeploymentDescription;
 import org.apache.airavata.model.appcatalog.computeresource.CloudJobSubmission;
 import org.apache.airavata.model.appcatalog.computeresource.ComputeResourceDescription;
@@ -90,37 +93,45 @@ public class JCloudsUtils {
        return false;
    }
 
-   public boolean startNode(ComputeService service,String nodeId){
+   public boolean startNode(ComputeService service,String nodeId) throws NodeStartFailureException {
        if (!checkNodeStateEqual(service,nodeId,NodeMetadata.Status.RUNNING)){
-           service.resumeNode(nodeId);
-           return true;
+           try{
+             service.resumeNode(nodeId);
+             return true;
+           }catch (Exception e){
+             log.error("Fail to start ec2 Node "+nodeId);
+             throw new NodeStartFailureException("Fail to start ec2 Node");
+           }
        }
        return false;
    }
 
    public boolean stopNode(ComputeService service,String nodeId){
        if (checkNodeStateEqual(service,nodeId,NodeMetadata.Status.RUNNING)){
-           service.suspendNode(nodeId);
-           return true;
+           try{
+               service.suspendNode(nodeId);
+               return true;
+           }catch (Exception e){
+               log.error("Fail to shut down node "+nodeId);
+           }
        }
        return false;
    }
 
-    public ExecResponse runScriptOnNode(ComputeService service,LoginCredentials credentials,String command,String nodeId,boolean runAsRoot){
+    public ExecResponse runScriptOnNode(ComputeService service,LoginCredentials credentials,String command,String nodeId,boolean runAsRoot) throws RunScriptFailureException {
         TemplateOptions options=TemplateOptions.Builder.overrideLoginCredentials(credentials);
         try {
             ExecResponse response=service.runScriptOnNode(nodeId,exec(command),
                     options.runAsRoot(runAsRoot).wrapInInitScript(false));
-
             System.out.println("response :"+ response.toString());
             return response;
         }catch (Exception e){
-            e.printStackTrace();
-            return null;
+            log.error("fail to run command "+command);
+            throw new RunScriptFailureException("fail to run command "+command);
         }
     }
 
-    public ListenableFuture<ExecResponse> submitScriptToNode(ComputeService service,LoginCredentials credentials,String command,String nodeId,boolean runAsRoot){
+    public ListenableFuture<ExecResponse> submitScriptToNode(ComputeService service,LoginCredentials credentials,String command,String nodeId,boolean runAsRoot) throws RunScriptFailureException {
         TemplateOptions options=TemplateOptions.Builder.overrideLoginCredentials(credentials);
 
         ListenableFuture<ExecResponse> future=null;
@@ -128,7 +139,8 @@ public class JCloudsUtils {
            future= service.submitScriptOnNode(nodeId, exec(command),
                     options.runAsRoot(runAsRoot).wrapInInitScript(false));
         }catch (Exception e){
-            e.printStackTrace();
+            log.error("fail to run command "+command);
+            throw new RunScriptFailureException("fail to run command "+command);
         }
         return future;
     }
@@ -156,14 +168,19 @@ public class JCloudsUtils {
 
     public boolean isS3CmdInstall(ComputeService service,String nodeId,LoginCredentials credentials){
         String command="s3cmd --version";
-        ExecResponse response=runScriptOnNode(service,credentials,command,nodeId,false);
-        if(response.getExitStatus()==12){
-            return true;
+        ExecResponse response= null;
+        try {
+            response = runScriptOnNode(service,credentials,command,nodeId,false);
+            if(response.getExitStatus()==12){
+                return true;
+            }
+        } catch (RunScriptFailureException e) {
+            return false;
         }
         return false;
     }
 
-    public void installS3CmdOnNode(ComputeService service,JCloudsSecurityContext securityContext,LoginCredentials credentials,String nodeId){
+    public void installS3CmdOnNode(ComputeService service,JCloudsSecurityContext securityContext,LoginCredentials credentials,String nodeId) throws GFacHandlerException {
         String installs3cmd=new StringBuilder().append("cd /etc/yum.repos.d \n")
                 .append("sudo wget http://s3tools.org/repo/RHEL_6/s3tools.repo \n")
                 .append("sudo yum -y install s3cmd")
@@ -180,8 +197,13 @@ public class JCloudsUtils {
                 .append("y")
                 .toString();
 
-        runScriptOnNode(service,credentials,installs3cmd,nodeId,true);
-        runScriptOnNode(service,credentials,configures3cmd,nodeId,true);
+        try {
+            runScriptOnNode(service,credentials,installs3cmd,nodeId,true);
+            runScriptOnNode(service,credentials,configures3cmd,nodeId,true);
+        } catch (RunScriptFailureException e) {
+            log.error("Fail to install s3cmd ");
+            throw new GFacHandlerException("Fail to install s3cmd ");
+        }
     }
 
     public ComputeServiceContext initJCloudsEnvironment(JobExecutionContext jobExecutionContext) throws GFacException {
@@ -217,17 +239,27 @@ public class JCloudsUtils {
 
         Iterable<Module> modules= ImmutableSet.<Module>of(new Log4JLoggingModule(),
                 new SshjSshClientModule());
-        ContextBuilder builder=ContextBuilder.newBuilder(securityContext.getProviderName())
-                .credentials(securityContext.getAccessKey(), securityContext.getSecretKey())
-                .modules(modules)
-                .overrides(overides);
-        ComputeServiceContext context= builder.buildView(ComputeServiceContext.class);
-        startNode(context.getComputeService(),nodeId);
+
+        ComputeServiceContext context=null;
+        try {
+            ContextBuilder builder=ContextBuilder.newBuilder(securityContext.getProviderName())
+                    .credentials(securityContext.getAccessKey(), securityContext.getSecretKey())
+                    .modules(modules)
+                    .overrides(overides);
+            context= builder.buildView(ComputeServiceContext.class);
+            startNode(context.getComputeService(),nodeId);
+        } catch (NodeStartFailureException e) {
+            log.error("Fail to start ec2 node");
+            throw new GFacException("Fail to start ec2 node");
+        }catch (Exception e){
+            log.error("Fail to create ComputeService Context");
+            throw new GFacException("Fail to create ComputeService Context");
+        }
         securityContext.setContext(context);
         return context;
     }
 
-    public LoginCredentials makeLoginCredentials(JCloudsSecurityContext securityContext) throws PublicKeyException {
+    public LoginCredentials makeLoginCredentials(JCloudsSecurityContext securityContext) throws PublicKeyException, GFacException {
         String user=securityContext.getUserName();
         String privateKey=securityContext.getPublicKey();
         LoginCredentials credentials=null;
@@ -241,6 +273,7 @@ public class JCloudsUtils {
                     .privateKey(privateKey).build();
         }catch (Exception e){
            log.error("fail to create login credentials for the node");
+           throw new GFacException("fail to create login credentials for the node");
         }
         return credentials;
     }

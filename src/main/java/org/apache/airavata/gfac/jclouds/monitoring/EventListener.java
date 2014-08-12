@@ -19,7 +19,7 @@
  *
 */
 
-package org.apache.airavata.gfac.jclouds.Monitoring;
+package org.apache.airavata.gfac.jclouds.monitoring;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.airavata.gfac.GFacException;

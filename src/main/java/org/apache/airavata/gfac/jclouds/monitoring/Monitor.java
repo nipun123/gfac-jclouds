@@ -37,7 +37,6 @@ import org.apache.airavata.gfac.monitor.core.AiravataAbstractMonitor;
 import org.apache.airavata.model.workspace.experiment.JobDetails;
 import org.apache.airavata.model.workspace.experiment.JobState;
 import org.apache.airavata.model.workspace.experiment.TaskState;
-import org.apache.airavata.persistance.registry.jpa.model.JobDetail;
 import org.jclouds.compute.domain.ExecResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +83,7 @@ public class Monitor extends AiravataAbstractMonitor {
     public void registerListener(MonitorID monitorID){
         JCloudsMonitorID jCloudsMonitorID=(JCloudsMonitorID)monitorID;
         ListenableFuture<ExecResponse> future=jCloudsMonitorID.getFuture();
-        future.addListener(new EventListener(monitorID,future), MoreExecutors.sameThreadExecutor());
+        future.addListener(new EventListener(monitorID, future),MoreExecutors.sameThreadExecutor());
         jCloudsMonitorID.setStatus(JobState.ACTIVE);
         finishQueue.add(jCloudsMonitorID);
 
@@ -104,10 +103,13 @@ public class Monitor extends AiravataAbstractMonitor {
                         JobDetails details=next.getJobExecutionContext().getJobDetails();
                         details.setJobDescription("job completed");
                         GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.COMPLETE);
+
+                        JobStatusChangeRequest jobStatusChangeRequest=new JobStatusChangeRequest(next);
+                        publisher.publish(jobStatusChangeRequest);
                         publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
                                 next.getTaskID()), TaskState.COMPLETED));
                     } catch (GFacException e) {
-                        log.error("Error occured while output handling");
+                        log.error("Error occurred while output handling");
                         publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
                                 next.getTaskID()), TaskState.FAILED));
                     }
