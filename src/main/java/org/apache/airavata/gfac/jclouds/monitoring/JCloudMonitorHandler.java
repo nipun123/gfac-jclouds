@@ -34,9 +34,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 public class JCloudMonitorHandler extends ThreadedHandler{
     private final static Logger logger= LoggerFactory.getLogger(JCloudMonitorHandler.class);
+    private Semaphore semaphore;
 
     private Monitor monitor;
     private ListenableFuture<ExecResponse> future;
@@ -48,6 +50,7 @@ public class JCloudMonitorHandler extends ThreadedHandler{
             LinkedBlockingQueue<MonitorID> pushQueue = new LinkedBlockingQueue<MonitorID>();
             LinkedBlockingQueue<MonitorID> finishQueue = new LinkedBlockingQueue<MonitorID>();
             monitor=new Monitor(BetterGfacImpl.getMonitorPublisher(),pushQueue,finishQueue);
+            semaphore=new Semaphore(1,true);
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -60,16 +63,20 @@ public class JCloudMonitorHandler extends ThreadedHandler{
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException {
         super.invoke(jobExecutionContext);
-        if(future ==null){
-            logger.info("the future is not set for this job "+jobExecutionContext.getJobDetails().getJobID());
-        }else{
-            MonitorID monitorID=new JCloudsMonitorID(jobExecutionContext, future);
-            monitorID.setJobID(jobExecutionContext.getJobDetails().getJobID());
-            monitorID.setTaskID(jobExecutionContext.getTaskData().getTaskID());
-            monitorID.setExperimentID(jobExecutionContext.getExperimentID());
-            monitorID.setWorkflowNodeID(jobExecutionContext.getWorkflowNodeDetails().getNodeInstanceId());
-            monitor.getRunningQueue().add(monitorID);
-            future =null;
+        try{
+            if(future ==null){
+                logger.info("the future is not set for this job "+jobExecutionContext.getJobDetails().getJobID());
+            }else{
+                MonitorID monitorID=new JCloudsMonitorID(jobExecutionContext, future);
+                monitorID.setJobID(jobExecutionContext.getJobDetails().getJobID());
+                monitorID.setTaskID(jobExecutionContext.getTaskData().getTaskID());
+                monitorID.setExperimentID(jobExecutionContext.getExperimentID());
+                monitorID.setWorkflowNodeID(jobExecutionContext.getWorkflowNodeDetails().getNodeInstanceId());
+                monitor.getRunningQueue().add(monitorID);
+                future =null;
+            }   
+        }finally {
+            semaphore.release();
         }
 
     }
@@ -87,6 +94,11 @@ public class JCloudMonitorHandler extends ThreadedHandler{
     }
 
     public void setFuture(ListenableFuture<ExecResponse> future) {
+        try {
+            semaphore.acquire();
+        } catch (InterruptedException e) {
+            logger.error("Fail to acquire semaphore");
+        }
         this.future = future;
     }
 
