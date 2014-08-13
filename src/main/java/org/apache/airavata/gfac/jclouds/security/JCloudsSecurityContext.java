@@ -29,6 +29,7 @@ import org.apache.airavata.gfac.AbstractSecurityContext;
 import org.apache.airavata.gfac.RequestData;
 import org.apache.airavata.gfac.SecurityContext;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
+import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +42,9 @@ public class JCloudsSecurityContext implements  SecurityContext{
 
     public static final String JCLOUDS_SECURITY_CONTEXT="jclouds";
 
-
+    ComputeServiceContext context;
     private String accessKey;
     private String secretKey;
-    private String amiId;
-    private String instanceType;
     private String nodeId;
     private String publicKey;
     private String userName;
@@ -122,14 +121,6 @@ public class JCloudsSecurityContext implements  SecurityContext{
         return secretKey;
     }
 
-    public String getInstanceType() {
-        return instanceType;
-    }
-
-    public String getAmiId() {
-        return amiId;
-    }
-
     public String getNodeId() {
         return nodeId;
     }
@@ -161,5 +152,13 @@ public class JCloudsSecurityContext implements  SecurityContext{
     public void setRequestData(RequestData requestData) {
         this.requestData = requestData;
     }
-}
 
+    public ComputeServiceContext getContext() {
+        return context;
+    }
+
+    public void setContext(ComputeServiceContext context) {
+        this.context = context;
+    }
+
+}
