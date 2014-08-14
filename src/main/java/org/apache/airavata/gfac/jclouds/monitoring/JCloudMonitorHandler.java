@@ -19,7 +19,7 @@
  *
 */
 
-package org.apache.airavata.gfac.jclouds.Monitoring;
+package org.apache.airavata.gfac.jclouds.monitoring;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.airavata.gfac.core.context.JobExecutionContext;
@@ -38,10 +38,10 @@ import java.util.concurrent.Semaphore;
 
 public class JCloudMonitorHandler extends ThreadedHandler{
     private final static Logger logger= LoggerFactory.getLogger(JCloudMonitorHandler.class);
-    private Semaphore semaphore;
 
     private Monitor monitor;
-    private ListenableFuture<ExecResponse> future;
+    private Semaphore semaphore;
+    private JCloudsMonitorID monitorID;
 
     @Override
     public void initProperties(Properties properties) throws GFacHandlerException {
@@ -62,23 +62,21 @@ public class JCloudMonitorHandler extends ThreadedHandler{
     }
 
     public void invoke(JobExecutionContext jobExecutionContext) throws GFacHandlerException {
-        super.invoke(jobExecutionContext);
         try{
-            if(future ==null){
-                logger.info("the future is not set for this job "+jobExecutionContext.getJobDetails().getJobID());
+            super.invoke(jobExecutionContext);
+            if(monitorID ==null){
+                logger.info("the monitorId is not set for this job "+jobExecutionContext.getJobDetails().getJobID());
             }else{
-                MonitorID monitorID=new JCloudsMonitorID(jobExecutionContext, future);
                 monitorID.setJobID(jobExecutionContext.getJobDetails().getJobID());
                 monitorID.setTaskID(jobExecutionContext.getTaskData().getTaskID());
                 monitorID.setExperimentID(jobExecutionContext.getExperimentID());
                 monitorID.setWorkflowNodeID(jobExecutionContext.getWorkflowNodeDetails().getNodeInstanceId());
                 monitor.getRunningQueue().add(monitorID);
-                future =null;
-            }   
+                monitorID =null;
+            }
         }finally {
             semaphore.release();
         }
-
     }
 
     public Monitor getMonitor() {
@@ -89,18 +87,19 @@ public class JCloudMonitorHandler extends ThreadedHandler{
         this.monitor = monitor;
     }
 
-    public ListenableFuture<ExecResponse> getFuture() {
-        return future;
+    public JCloudsMonitorID getMonitorID() {
+        return monitorID;
     }
 
-    public void setFuture(ListenableFuture<ExecResponse> future) {
+    public void setMonitorID(JCloudsMonitorID monitorID) {
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
             logger.error("Fail to acquire semaphore");
         }
-        this.future = future;
+        this.monitorID = monitorID;
     }
+
 
 }
 

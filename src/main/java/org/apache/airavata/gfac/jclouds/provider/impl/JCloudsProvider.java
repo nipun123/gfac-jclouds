@@ -35,7 +35,9 @@ import org.apache.airavata.gfac.core.notification.events.StartExecutionEvent;
 import org.apache.airavata.gfac.core.provider.AbstractProvider;
 import org.apache.airavata.gfac.core.provider.GFacProviderException;
 import org.apache.airavata.gfac.core.utils.GFacUtils;
-import org.apache.airavata.gfac.jclouds.Monitoring.JCloudMonitorHandler;
+import org.apache.airavata.gfac.jclouds.monitoring.EventListener;
+import org.apache.airavata.gfac.jclouds.monitoring.JCloudMonitorHandler;
+import org.apache.airavata.gfac.jclouds.monitoring.JCloudsMonitorID;
 import org.apache.airavata.gfac.jclouds.exceptions.PublicKeyException;
 import org.apache.airavata.gfac.jclouds.security.JCloudsSecurityContext;
 import org.apache.airavata.gfac.jclouds.utils.JCloudsFileTransfer;
@@ -54,6 +56,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
 
 public class JCloudsProvider extends AbstractProvider {
     private static final Logger log = LoggerFactory.getLogger(JCloudsProvider.class);
@@ -161,7 +164,10 @@ public class JCloudsProvider extends AbstractProvider {
             log.info("No suitable handler exist to monitor job so out handler will not be invoked");
         }else{
             try {
-                ((JCloudMonitorHandler)monitorHandler).setFuture(future);
+                JCloudsMonitorID monitorID=new JCloudsMonitorID(jobExecutionContext,future);
+                monitorID.setStatus(JobState.ACTIVE);
+                future.addListener(new EventListener(monitorID,future), Executors.newSingleThreadExecutor());
+                ((JCloudMonitorHandler)monitorHandler).setMonitorID(monitorID);
                 monitorHandler.invoke(jobExecutionContext);
             } catch (GFacHandlerException e) {
                 e.printStackTrace();

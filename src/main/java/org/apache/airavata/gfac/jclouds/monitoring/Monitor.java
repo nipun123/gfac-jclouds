@@ -19,7 +19,7 @@
  *
 */
 
-package org.apache.airavata.gfac.jclouds.Monitoring;
+package org.apache.airavata.gfac.jclouds.monitoring;
 
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -81,12 +81,7 @@ public class Monitor extends AiravataAbstractMonitor {
     }
 
     public void registerListener(MonitorID monitorID){
-        JCloudsMonitorID jCloudsMonitorID=(JCloudsMonitorID)monitorID;
-        ListenableFuture<ExecResponse> future=jCloudsMonitorID.getFuture();
-        future.addListener(new EventListener(monitorID, future),MoreExecutors.sameThreadExecutor());
-        jCloudsMonitorID.setStatus(JobState.ACTIVE);
-        finishQueue.add(jCloudsMonitorID);
-
+        finishQueue.add(monitorID);
     }
 
     public void monitorQueuedJobs(){
@@ -99,7 +94,6 @@ public class Monitor extends AiravataAbstractMonitor {
                     JobExecutionContext jobExecutionContext=next.getJobExecutionContext();
                     try {
                         jobExecutionContext.getGfac().invokeOutFlowHandlers(jobExecutionContext);
-
                         JobDetails details=next.getJobExecutionContext().getJobDetails();
                         details.setJobDescription("job completed");
                         GFacUtils.saveJobStatus(jobExecutionContext, details, JobState.COMPLETE);
@@ -114,6 +108,7 @@ public class Monitor extends AiravataAbstractMonitor {
                                 next.getTaskID()), TaskState.FAILED));
                     }
                     finishQueue.remove(next);
+                    break;
                 }else if(next.getStatus()== JobState.FAILED){
                     finishQueue.remove(next);
                     publisher.publish(new TaskStatusChangeRequest(new TaskIdentity(next.getExperimentID(), next.getWorkflowNodeID(),
