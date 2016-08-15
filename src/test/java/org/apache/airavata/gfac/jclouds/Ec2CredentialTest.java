@@ -43,7 +43,7 @@ import java.util.UUID;
 
 public class Ec2_credentialTest {
     DBUtil dbUtil;
-    String accessKey="";
+    String accessKey="" ;
     String secretKey="";
     String publicKeyFile="/etc/ssh/.ssh/airavata.pem";
     String gateWayName="php_reference_gateway";
